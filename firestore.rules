@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // One document per household. The household code in the link is the key,
+    // so nobody can list or guess other households.
+    match /households/{id} {
+      allow get, create, update: if request.auth != null && id.size() >= 20;
+    }
+  }
+}
