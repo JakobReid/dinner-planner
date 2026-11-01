@@ -3,6 +3,7 @@ const DAYS=["Fri","Sat","Sun","Mon","Tue","Wed","Thu"];
 const DAY_FULL=["Friday","Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday"];
 const KEY="dinner-planner-v1";
 const ing=(n,o)=>({name:n,optional:!!o});
+const maybeLast=list=>list.sort((a,b)=>a.optional-b.optional);
 const DEFAULTS={
   meals:[
     {id:"m1",name:"Rice cooker chicken",ingredients:[ing("Chicken thigh"),ing("Rice"),ing("Spring onion"),ing("Soy sauce")],notes:"Chuck it all in the rice cooker."},
@@ -33,7 +34,7 @@ let ref=null,saving=false,dirty=false,gotRemote=false;
 function normalise(s){
   s=JSON.parse(JSON.stringify(s||{}));
   s.meals=Array.isArray(s.meals)?s.meals:[];
-  s.meals.forEach(m=>{m.ingredients=Array.isArray(m.ingredients)?m.ingredients.map(i=>typeof i==="string"?ing(i):ing(String(i.name||""),i.optional)).filter(i=>i.name):[];m.notes=m.notes||"";});
+  s.meals.forEach(m=>{m.ingredients=Array.isArray(m.ingredients)?maybeLast(m.ingredients.map(i=>typeof i==="string"?ing(i.trim().toLowerCase()):ing(String(i.name||"").trim().toLowerCase(),i.optional)).filter(i=>i.name)):[];m.notes=m.notes||"";});
   s.weeks=s.weeks&&typeof s.weeks==="object"?s.weeks:{};
   // migrate the old single-week shape
   if(s.week&&typeof s.week==="object"){
@@ -122,7 +123,7 @@ function renderMeals(){
     if(last[m.id])bits.push(last[m.id]===today?"Having it tonight":`Last had ${fmt(last[m.id])}`);
     box.append(el("button",{class:"meal",onclick:()=>openMeal(m.id)},
       el("h3",{},m.name),
-      el("div",{class:"chips"},m.ingredients.map(x=>el("span",{class:"chip"+(x.optional?" opt":"")},x.optional?`maybe ${x.name.toLowerCase()}`:x.name))),
+      el("div",{class:"chips"},m.ingredients.map(x=>el("span",{class:"chip"+(x.optional?" opt":"")},x.optional?`maybe ${x.name}`:x.name))),
       bits.length?el("div",{class:"uses"},bits.join(". ")):null));
   });
 }
@@ -199,10 +200,11 @@ function renderPick(){
       el("button",{class:"edit","aria-label":`Edit ${m.name}`,onclick:()=>openMeal(m.id)},editIcon())));
   });
   if(q&&!list.length)box.append(el("p",{class:"nores"},`No meals match “${raw}”.`));
-  box.append(el("div",{class:"sep"}));
-  box.append(el("button",{class:"alt",onclick:()=>openMeal(null,q&&!list.length?raw:"")},plusIcon(),q&&!list.length?`Add “${raw}” as a new meal`:"Add a new meal"));
-  box.append(el("button",{class:"alt"+(cur==="out"?" cur":""),onclick:()=>setDay(d,"out")},outIcon(),"Eating out / leftovers"));
-  if(cur)box.append(el("button",{class:"alt clear",onclick:()=>setDay(d,null)},clearIcon(),"Clear this night"));
+  // actions sit under the list and stay visible however long it gets
+  const acts=$("pickActs");acts.replaceChildren();
+  acts.append(el("button",{class:"alt",onclick:()=>openMeal(null,q&&!list.length?raw:"")},plusIcon(),q&&!list.length?`Add “${raw}” as a new meal`:"Add a new meal"));
+  acts.append(el("button",{class:"alt"+(cur==="out"?" cur":""),onclick:()=>setDay(d,"out")},outIcon(),"Eating out / leftovers"));
+  if(cur)acts.append(el("button",{class:"alt clear",onclick:()=>setDay(d,null)},clearIcon(),"Clear this night"));
 }
 $("pickQ").addEventListener("input",renderPick);
 $("pickQ").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const b=$("pickList").querySelector("button[data-meal]");if(b&&$("pickQ").value.trim())b.click()}});
@@ -251,9 +253,9 @@ $("addMeal").onclick=()=>openMeal(null);
 $("mealForm").addEventListener("submit",e=>{
   e.preventDefault();
   const name=$("mName").value.trim();if(!name)return;
-  const ingredients=$("mIng").value.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+  const ingredients=maybeLast($("mIng").value.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
     const opt=/^maybe\b/i.test(l);let n=l.replace(/^maybe\b\s*(some\s+)?/i,"").trim();
-    n=n.charAt(0).toUpperCase()+n.slice(1);return ing(n,opt)}).filter(x=>x.name);
+    return ing(n.toLowerCase(),opt)}).filter(x=>x.name));
   const notes=$("mNotes").value.trim();
   const id=editing||uid();
   if(editing){Object.assign(mealById(editing),{name,ingredients,notes})}
