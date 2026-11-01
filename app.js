@@ -161,6 +161,8 @@ window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(["we
 function icon(svg){const s=document.createElement("span");s.className="ico";s.setAttribute("aria-hidden","true");s.innerHTML=svg;return s}
 const outIcon=()=>icon('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16l-1.6 10H5.6z"/><path d="M6.5 10 8.5 4h7l2 6"/><path d="M10 4l1 6M14 4l-1 6"/></svg>');
 const clearIcon=()=>icon('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>');
+const plusIcon=()=>icon('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>');
+const editIcon=()=>icon('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l3 3"/></svg>');
 let pickDay=null;
 function openPicker(d){
   pickDay=d;const i=DAYS.indexOf(d);$("pickTitle").textContent=`${DAY_FULL[i]} ${fmt(addDays(viewWeek,i))}`;
@@ -181,10 +183,13 @@ function renderPick(){
   }).filter(Boolean);
   list.forEach(({m,hit})=>{
     const notes=[];if(hit)notes.push("Has "+hit.join(", "));if(used.has(m.id))notes.push("Already on another night");
-    box.append(el("button",{class:m.id===cur?"cur":"","data-meal":m.id,onclick:()=>setDay(d,m.id)},m.name,notes.length?el("small",{},notes.join(". ")):null));
+    box.append(el("div",{class:"pr"},
+      el("button",{class:m.id===cur?"cur":"","data-meal":m.id,onclick:()=>setDay(d,m.id)},m.name,notes.length?el("small",{},notes.join(". ")):null),
+      el("button",{class:"edit","aria-label":`Edit ${m.name}`,onclick:()=>openMeal(m.id)},editIcon())));
   });
   if(q&&!list.length)box.append(el("p",{class:"nores"},`No meals match “${raw}”.`));
   box.append(el("div",{class:"sep"}));
+  box.append(el("button",{class:"alt",onclick:()=>openMeal(null,q&&!list.length?raw:"")},plusIcon(),q&&!list.length?`Add “${raw}” as a new meal`:"Add a new meal"));
   box.append(el("button",{class:"alt"+(cur==="out"?" cur":""),onclick:()=>setDay(d,"out")},outIcon(),"Eating out / leftovers"));
   if(cur)box.append(el("button",{class:"alt clear",onclick:()=>setDay(d,null)},clearIcon(),"Clear this night"));
 }
@@ -222,10 +227,10 @@ $("clearWk").onclick=()=>{
 
 /* ---------- meal editor ---------- */
 let editing=null;
-function openMeal(id){
+function openMeal(id,prefill){
   editing=id;const m=id?mealById(id):null;
   $("mealTitle").textContent=m?"Edit meal":"Add a meal";
-  $("mName").value=m?m.name:"";
+  $("mName").value=m?m.name:(prefill||"");
   $("mIng").value=m?m.ingredients.map(x=>(x.optional?"maybe ":"")+x.name).join("\n"):"";
   $("mNotes").value=m?m.notes:"";
   $("mDel").hidden=!m;
@@ -239,15 +244,18 @@ $("mealForm").addEventListener("submit",e=>{
     const opt=/^maybe\b/i.test(l);let n=l.replace(/^maybe\b\s*(some\s+)?/i,"").trim();
     n=n.charAt(0).toUpperCase()+n.slice(1);return ing(n,opt)}).filter(x=>x.name);
   const notes=$("mNotes").value.trim();
+  const id=editing||uid();
   if(editing){Object.assign(mealById(editing),{name,ingredients,notes})}
-  else state.meals.push({id:uid(),name,ingredients,notes});
+  else state.meals.push({id,name,ingredients,notes});
   save();$("mealDlg").close();render();
+  if($("pickDlg").open){if(editing)renderPick();else setDay(pickDay,id)}
 });
 $("mDel").onclick=()=>{
   const m=mealById(editing);if(!m||!confirm(`Delete ${m.name}? It also comes off any planned nights.`))return;
   state.meals=state.meals.filter(x=>x.id!==editing);
   for(const k in state.weeks)for(const d of DAYS)if(state.weeks[k].plan[d]===editing)delete state.weeks[k].plan[d];
   save();$("mealDlg").close();render();
+  if($("pickDlg").open)renderPick();
 };
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
 
