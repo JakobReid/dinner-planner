@@ -18,6 +18,9 @@ const DEFAULTS={
   weeks:{}
 };
 
+/* ---------- aisles (table lives in aisles.js) ---------- */
+const aisleOf=key=>AISLE_LABEL[state.aisles[key]]?state.aisles[key]:guessAisle(key);
+
 /* ---------- dates (local time) ---------- */
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const parse=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
@@ -36,6 +39,8 @@ function normalise(s){
   s.meals=Array.isArray(s.meals)?s.meals:[];
   s.meals.forEach(m=>{m.ingredients=Array.isArray(m.ingredients)?maybeLast(m.ingredients.map(i=>typeof i==="string"?ing(i.trim().toLowerCase()):ing(String(i.name||"").trim().toLowerCase(),i.optional)).filter(i=>i.name)):[];m.notes=m.notes||"";});
   s.weeks=s.weeks&&typeof s.weeks==="object"?s.weeks:{};
+  s.aisles=s.aisles&&typeof s.aisles==="object"?s.aisles:{};
+  for(const k in s.aisles)if(!AISLE_LABEL[s.aisles[k]])delete s.aisles[k];
   // migrate the old single-week shape
   if(s.week&&typeof s.week==="object"){
     let ws=typeof s.weekStart==="string"?s.weekStart:weekStartOf(new Date());
@@ -134,30 +139,41 @@ function shoppingItems(){
       it.meals.push(m.name);if(!x.optional)it.optional=false;map.set(k,it)})});
   return [...map.values()];
 }
+function aislePicker(key,name){
+  // a native select styled as a chip: tapping it sets the aisle for this ingredient across every meal
+  const sel=el("select",{class:"aisle","aria-label":`Aisle for ${name}`,onchange:e=>{state.aisles[key]=e.target.value;save();renderShop()}});
+  const cur=aisleOf(key);
+  AISLES.forEach(([id,label])=>sel.append(el("option",{value:id,...(id===cur?{selected:""}:{})},label)));
+  return sel;
+}
 function renderShop(){
   const box=$("shopList");box.replaceChildren();
   const w=wk(),items=shoppingItems();
-  const need=items.filter(i=>!i.optional).sort((a,b)=>a.name.localeCompare(b.name));
-  const maybe=items.filter(i=>i.optional).sort((a,b)=>a.name.localeCompare(b.name));
-  const left=need.filter(i=>!w.checked[i.key]).length+w.extras.filter(e=>!e.done).length;
+  const left=items.filter(i=>!i.optional&&!w.checked[i.key]).length+w.extras.filter(e=>!e.done).length;
   const c=$("shopCount");c.hidden=!left;c.textContent=left;
   if(!items.length&&!w.extras.length){box.append(el("div",{class:"empty-state"},"Nothing to buy for this week yet. Pick some dinners on the Week tab and the ingredients land here."));return}
   const row=(it)=>{
     const id="c-"+it.key.replace(/\W+/g,"-");const done=!!w.checked[it.key];
     const uniq=[...new Set(it.meals)];
-    return el("div",{class:"item"+(done?" done":"")},
+    return el("div",{class:"item"+(done?" done":"")+(it.optional?" maybe":"")},
       el("input",{type:"checkbox",id,...(done?{checked:""}:{}),onchange:e=>{const ww=wk(true);if(e.target.checked)ww.checked[it.key]=true;else delete ww.checked[it.key];save();renderShop()}}),
-      el("label",{for:id},it.name,it.meals.length>1?el("span",{class:"qty"},"×"+it.meals.length):null,el("span",{class:"from"},uniq.join(", "))));
+      el("label",{for:id},it.optional?el("span",{class:"tag"},"maybe "):null,it.name,it.meals.length>1?el("span",{class:"qty"},"×"+it.meals.length):null,el("span",{class:"from"},uniq.join(", "))),
+      aislePicker(it.key,it.name));
   };
-  if(need.length)box.append(el("div",{class:"group"},el("h2",{},"For these dinners"),need.map(row)));
-  if(maybe.length)box.append(el("div",{class:"group"},el("h2",{},"Maybe"),maybe.map(row)));
-  if(w.extras.length)box.append(el("div",{class:"group"},el("h2",{},"Extras"),w.extras.map(x=>{
-    const id="e-"+x.id;
+  const extraRow=(x)=>{
+    const id="e-"+x.id,key=keyOf(x.name);
     return el("div",{class:"item"+(x.done?" done":"")},
       el("input",{type:"checkbox",id,...(x.done?{checked:""}:{}),onchange:e=>{x.done=e.target.checked;save();renderShop()}}),
       el("label",{for:id},x.name),
+      aislePicker(key,x.name),
       el("button",{class:"x","aria-label":`Remove ${x.name}`,onclick:()=>{w.extras=w.extras.filter(y=>y!==x);save();renderShop()}},"×"));
-  })));
+  };
+  // one block per aisle in walk-the-shop order; required before maybe, then alphabetical
+  const sorted=[...items].sort((a,b)=>(a.optional-b.optional)||a.name.localeCompare(b.name));
+  AISLES.forEach(([id,label])=>{
+    const rows=[...sorted.filter(i=>aisleOf(i.key)===id).map(row),...w.extras.filter(x=>aisleOf(keyOf(x.name))===id).map(extraRow)];
+    if(rows.length)box.append(el("div",{class:"group"},el("h2",{},label),rows));
+  });
 }
 
 /* ---------- tabs ---------- */

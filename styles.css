@@ -78,6 +78,10 @@ section{padding-top:18px}
 .item .qty{font-weight:700;color:var(--hot);margin-left:4px;font-size:.9rem}
 .item.done label{text-decoration:line-through;color:var(--muted)}
 .item .x{background:none;border:0;color:var(--muted);font-size:1.2rem;line-height:1;padding:2px 6px}
+.item .tag{color:var(--muted);font-weight:400}
+.item.maybe label{color:var(--muted)}
+.item .aisle{appearance:none;-webkit-appearance:none;flex:none;align-self:flex-start;border:1px dashed var(--line);background:none;color:var(--muted);border-radius:99px;padding:3px 9px;font:inherit;font-size:.75rem;line-height:1.2;max-width:34vw;text-overflow:ellipsis}
+.item .aisle:hover,.item .aisle:focus-visible{color:var(--ink)}
 .add{display:flex;gap:8px;margin-top:14px}
 .add input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 14px}
 .empty-state{background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:22px;color:var(--muted);text-align:center}
