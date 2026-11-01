@@ -83,11 +83,11 @@ section{padding-top:18px}
 .empty-state{background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:22px;color:var(--muted);text-align:center}
 
 /* dialogs */
-dialog{border:0;border-radius:20px;padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 40px);background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog{overscroll-behavior:contain;border:0;border-radius:20px;padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 40px);background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
 dialog::backdrop{background:rgba(10,20,15,.5)}
 .dlg{padding:20px;display:flex;flex-direction:column;gap:12px}
 .dlg h2{margin:0;font-size:1.4rem;letter-spacing:-0.02em}
-.pick{display:flex;flex-direction:column;max-height:60dvh;overflow:auto;margin:0 -6px}
+.pick{display:flex;flex-direction:column;max-height:60dvh;overflow:auto;overscroll-behavior:contain;margin:0 -6px}
 .pick button{text-align:left;background:none;border:0;border-radius:10px;padding:11px 8px;font-weight:600}
 .pick button:hover{background:var(--chip)}
 .pick button small{display:block;font-weight:400;color:var(--muted);font-size:.8rem}

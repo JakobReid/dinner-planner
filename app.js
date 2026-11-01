@@ -167,7 +167,7 @@ let pickDay=null;
 function openPicker(d){
   pickDay=d;const i=DAYS.indexOf(d);$("pickTitle").textContent=`${DAY_FULL[i]} ${fmt(addDays(viewWeek,i))}`;
   $("pickQ").value="";renderPick();
-  $("pickDlg").showModal();
+  $("pickDlg").showModal();lockScroll();
   if(matchMedia("(pointer:fine)").matches)$("pickQ").focus();else $("pickQ").blur();
 }
 function renderPick(){
@@ -234,7 +234,7 @@ function openMeal(id,prefill){
   $("mIng").value=m?m.ingredients.map(x=>(x.optional?"maybe ":"")+x.name).join("\n"):"";
   $("mNotes").value=m?m.notes:"";
   $("mDel").hidden=!m;
-  $("mealDlg").showModal();$("mName").focus();
+  $("mealDlg").showModal();lockScroll();$("mName").focus();
 }
 $("addMeal").onclick=()=>openMeal(null);
 $("mealForm").addEventListener("submit",e=>{
@@ -264,6 +264,12 @@ function addExtra(){const v=$("extraIn").value.trim();if(!v)return;wk(true).extr
 $("extraAdd").onclick=addExtra;
 $("extraIn").addEventListener("keydown",e=>{if(e.key==="Enter")addExtra()});
 $("untick").onclick=()=>{const w=wk(true);w.checked={};w.extras.forEach(x=>x.done=false);save();renderShop()};
+
+/* ---------- scroll lock (page stays put under an open dialog, iOS included) ---------- */
+let lockY=0;
+function lockScroll(){if(document.body.style.position==="fixed")return;lockY=scrollY;Object.assign(document.body.style,{position:"fixed",top:-lockY+"px",left:"0",right:"0"})}
+function unlockScroll(){if(document.querySelector("dialog[open]"))return;Object.assign(document.body.style,{position:"",top:"",left:"",right:""});scrollTo(0,lockY)}
+document.querySelectorAll("dialog").forEach(d=>d.addEventListener("close",unlockScroll));
 
 /* ---------- toast ---------- */
 let tt;function toast(msg){let t=document.querySelector(".toast");if(!t){t=el("div",{class:"toast",role:"status"});document.body.append(t)}t.textContent=msg;clearTimeout(tt);tt=setTimeout(()=>t.remove(),2800)}
