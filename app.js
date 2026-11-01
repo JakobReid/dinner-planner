@@ -1,5 +1,6 @@
-const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-const DAY_FULL=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const WEEK_START=5; // 0=Sun … 5=Fri: the week runs Friday to Thursday
+const DAYS=["Fri","Sat","Sun","Mon","Tue","Wed","Thu"];
+const DAY_FULL=["Friday","Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday"];
 const KEY="dinner-planner-v1";
 const ing=(n,o)=>({name:n,optional:!!o});
 const DEFAULTS={
@@ -20,12 +21,13 @@ const DEFAULTS={
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const parse=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
 const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return ymd(d)};
-function mondayOf(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-(x.getDay()+6)%7);return ymd(x)}
+function weekStartOf(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-(x.getDay()+7-WEEK_START)%7);return ymd(x)}
+const dayName=s=>DAYS[(parse(s).getDay()+7-WEEK_START)%7];
 const todayStr=()=>ymd(new Date());
 const fmt=s=>parse(s).toLocaleDateString("en-AU",{day:"numeric",month:"short"});
 
 let state=normalise(loadLocal()||DEFAULTS);
-let viewWeek=mondayOf(new Date());
+let viewWeek=weekStartOf(new Date());
 let ref=null,saving=false,dirty=false,gotRemote=false;
 
 function normalise(s){
@@ -35,13 +37,22 @@ function normalise(s){
   s.weeks=s.weeks&&typeof s.weeks==="object"?s.weeks:{};
   // migrate the old single-week shape
   if(s.week&&typeof s.week==="object"){
-    let ws=typeof s.weekStart==="string"?s.weekStart:mondayOf(new Date());
+    let ws=typeof s.weekStart==="string"?s.weekStart:weekStartOf(new Date());
     if(parse(ws).getDay()===0)ws=addDays(ws,1);
-    ws=mondayOf(parse(ws));
+    ws=weekStartOf(parse(ws));
     if(!s.weeks[ws])s.weeks[ws]={plan:s.week,checked:s.checked||{},extras:s.extras||[]};
   }
   delete s.week;delete s.checked;delete s.extras;delete s.weekStart;
   for(const k in s.weeks){const w=s.weeks[k]||{};w.plan=w.plan&&typeof w.plan==="object"?w.plan:{};w.checked=w.checked&&typeof w.checked==="object"?w.checked:{};w.extras=Array.isArray(w.extras)?w.extras:[];s.weeks[k]=w}
+  // weeks keyed by a different start day (Monday, before the Friday week): re-home each night, ticks and extras follow the first day
+  const blank=()=>({plan:{},checked:{},extras:[]});
+  for(const k of Object.keys(s.weeks)){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(k)){delete s.weeks[k];continue}
+    if(k===weekStartOf(parse(k)))continue;
+    const w=s.weeks[k];delete s.weeks[k];
+    for(let i=0;i<7;i++){const date=addDays(k,i),d=dayName(date),v=w.plan[d];if(!v)continue;const nk=weekStartOf(parse(date));const nw=s.weeks[nk]||(s.weeks[nk]=blank());if(!nw.plan[d])nw.plan[d]=v}
+    const nk=weekStartOf(parse(k));const nw=s.weeks[nk]||(s.weeks[nk]=blank());Object.assign(nw.checked,w.checked);nw.extras.push(...w.extras);
+  }
   return s;
 }
 function loadLocal(){try{const v=localStorage.getItem(KEY);return v?JSON.parse(v):null}catch(e){return null}}
@@ -69,12 +80,12 @@ const $=id=>document.getElementById(id);
 function el(tag,attrs,...kids){const e=document.createElement(tag);for(const k in attrs||{}){if(k==="class")e.className=attrs[k];else if(k.startsWith("on"))e.addEventListener(k.slice(2),attrs[k]);else e.setAttribute(k,attrs[k])}kids.flat().forEach(c=>{if(c!=null&&c!==false)e.append(c.nodeType?c:document.createTextNode(c))});return e}
 
 function render(){renderNav();renderWeek();renderMeals();renderShop()}
-function weekDiff(){return Math.round((parse(viewWeek)-parse(mondayOf(new Date())))/(7*864e5))}
+function weekDiff(){return Math.round((parse(viewWeek)-parse(weekStartOf(new Date())))/(7*864e5))}
 function renderNav(){
   const diff=weekDiff();
   $("wkLabel").textContent=diff===0?"This week":diff===1?"Next week":diff===-1?"Last week":diff>0?`In ${diff} weeks`:`${-diff} weeks ago`;
   const sub=$("sub");sub.replaceChildren(`${fmt(viewWeek)} to ${fmt(addDays(viewWeek,6))}`);
-  if(diff!==0){sub.append(" ",el("button",{onclick:()=>goWeek(mondayOf(new Date()))},"Back to this week"))}
+  if(diff!==0){sub.append(" ",el("button",{onclick:()=>goWeek(weekStartOf(new Date()))},"Back to this week"))}
   $("clearWk").textContent=diff===0?"Clear this week":"Clear this week’s plan";
 }
 function goWeek(k){viewWeek=k;render()}
@@ -167,7 +178,7 @@ let pickDay=null;
 function openPicker(d){
   pickDay=d;const i=DAYS.indexOf(d);$("pickTitle").textContent=`${DAY_FULL[i]} ${fmt(addDays(viewWeek,i))}`;
   $("pickQ").value="";renderPick();
-  $("pickDlg").showModal();lockScroll();
+  lockScroll();$("pickDlg").showModal();
   if(matchMedia("(pointer:fine)").matches)$("pickQ").focus();else $("pickQ").blur();
 }
 function renderPick(){
@@ -234,7 +245,7 @@ function openMeal(id,prefill){
   $("mIng").value=m?m.ingredients.map(x=>(x.optional?"maybe ":"")+x.name).join("\n"):"";
   $("mNotes").value=m?m.notes:"";
   $("mDel").hidden=!m;
-  $("mealDlg").showModal();lockScroll();$("mName").focus();
+  lockScroll();$("mealDlg").showModal();$("mName").focus();
 }
 $("addMeal").onclick=()=>openMeal(null);
 $("mealForm").addEventListener("submit",e=>{
