@@ -195,7 +195,7 @@ let pickDay=null;
 function openPicker(d){
   pickDay=d;const i=DAYS.indexOf(d);$("pickTitle").textContent=`${DAY_FULL[i]} ${fmt(addDays(viewWeek,i))}`;
   $("pickQ").value="";renderPick();
-  lockScroll();$("pickDlg").showModal();
+  lockScroll();$("pickDlg").showModal();fitDialogs();
   if(matchMedia("(pointer:fine)").matches)$("pickQ").focus();else $("pickQ").blur();
 }
 function renderPick(){
@@ -263,7 +263,7 @@ function openMeal(id,prefill){
   $("mIng").value=m?m.ingredients.map(x=>(x.optional?"maybe ":"")+x.name).join("\n"):"";
   $("mNotes").value=m?m.notes:"";
   $("mDel").hidden=!m;
-  lockScroll();$("mealDlg").showModal();$("mName").focus();
+  lockScroll();$("mealDlg").showModal();fitDialogs();$("mName").focus();
 }
 $("addMeal").onclick=()=>openMeal(null);
 $("mealForm").addEventListener("submit",e=>{
@@ -299,6 +299,19 @@ let lockY=0;
 function lockScroll(){if(document.body.style.position==="fixed")return;lockY=scrollY;Object.assign(document.body.style,{position:"fixed",top:-lockY+"px",left:"0",right:"0"})}
 function unlockScroll(){if(document.querySelector("dialog[open]"))return;Object.assign(document.body.style,{position:"",top:"",left:"",right:""});scrollTo(0,lockY)}
 document.querySelectorAll("dialog").forEach(d=>d.addEventListener("close",unlockScroll));
+
+/* ---------- keyboard: keep open dialogs inside the visible viewport so Save is never under the keys ---------- */
+const vv=window.visualViewport;
+function fitDialogs(){
+  document.querySelectorAll("dialog[open]").forEach(d=>{
+    if(!vv){d.style.maxHeight="";d.style.top="";return}
+    d.style.maxHeight=Math.max(200,vv.height-32)+"px";d.style.top=vv.offsetTop+"px";
+  });
+}
+if(vv){vv.addEventListener("resize",fitDialogs);vv.addEventListener("scroll",fitDialogs)}
+document.querySelectorAll("dialog").forEach(d=>d.addEventListener("close",()=>{d.style.maxHeight="";d.style.top=""}));
+
+document.querySelectorAll("dialog input,dialog textarea").forEach(f=>f.addEventListener("focus",()=>setTimeout(()=>f.scrollIntoView({block:"nearest"}),300)));
 
 /* ---------- toast ---------- */
 let tt;function toast(msg){let t=document.querySelector(".toast");if(!t){t=el("div",{class:"toast",role:"status"});document.body.append(t)}t.textContent=msg;clearTimeout(tt);tt=setTimeout(()=>t.remove(),2800)}
