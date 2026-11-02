@@ -1,10 +1,21 @@
 // Household sync over Firestore. One document per household; the code in the link is the key.
-// Without Firebase config the app runs on this device only.
+// Writes are field-level merges queued through the offline cache, so the app works without signal
+// and two phones editing different things never overwrite each other. Without Firebase config the
+// app runs on this device only.
 import { initializeApp } from "firebase/app";
-import { getAuth, signInAnonymously } from "firebase/auth";
-import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
+import { connectAuthEmulator, getAuth, signInAnonymously } from "firebase/auth";
+import {
+  connectFirestoreEmulator,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  doc,
+  setDoc,
+  deleteField,
+  onSnapshot,
+} from "firebase/firestore";
 import { $, toast } from "./dom.js";
-import { replaceState, setRemote, isSaving, flush, save } from "./state.js";
+import { DEL, replaceState, setRemote, state, toDoc } from "./state.js";
 import { render } from "./render.js";
 
 const config = {
@@ -67,6 +78,14 @@ async function share() {
   }
 }
 
+// State patches use DEL for removals; Firestore wants its own sentinel.
+const toFields = (v) => {
+  if (v === DEL) return deleteField();
+  if (Array.isArray(v)) return v.map(toFields);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toFields(x)]));
+  return v;
+};
+
 export async function initSync() {
   const status = $("sync");
   if (!config.apiKey) {
@@ -77,30 +96,50 @@ export async function initSync() {
   let ref;
   try {
     const app = initializeApp(config);
-    await signInAnonymously(getAuth(app));
-    ref = doc(getFirestore(app), "households", householdCode());
+    const auth = getAuth(app);
+    const db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+    if (import.meta.env.VITE_FIREBASE_EMULATOR) {
+      connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+      connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    }
+    await signInAnonymously(auth);
+    ref = doc(db, "households", householdCode());
   } catch {
     fail();
     return;
   }
-  setRemote(
-    (data) => setDoc(ref, data),
-    () => toast("Couldn’t save to the shared plan. Changes are kept on this device."),
-  );
+  const write = (data) =>
+    setDoc(ref, toFields(data), { merge: true }).catch(() =>
+      toast("Couldn’t save to the shared plan. Changes are kept on this device."),
+    );
+  setRemote(write);
   $("shareBtn").hidden = false;
   $("shareBtn").onclick = share;
   onSnapshot(
     ref,
+    { includeMetadataChanges: true },
     (snap) => {
-      status.textContent = "Synced. Anyone with your link sees the same plan.";
-      if (isSaving()) return;
-      if (!snap.exists()) {
-        save();
-        flush();
+      const { hasPendingWrites, fromCache } = snap.metadata;
+      // our own writes are already in state; the server echo arrives once they land
+      if (hasPendingWrites) {
+        status.textContent = "Saving…";
         return;
       }
-      replaceState(snap.data());
+      status.textContent = fromCache
+        ? "Offline copy. Changes sync when you’re back online."
+        : "Synced. Anyone with your link sees the same plan.";
+      if (!snap.exists()) {
+        // only the server can say a household is new; seed it from this device
+        if (!fromCache) write(toDoc(state));
+        return;
+      }
+      const data = snap.data();
+      replaceState(data);
       render();
+      // older documents kept meals as an array; the rules now want the map
+      if (Array.isArray(data.meals)) write({ meals: toDoc(state).meals });
     },
     fail,
   );

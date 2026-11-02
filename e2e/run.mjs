@@ -4,12 +4,15 @@ import * as shop from "./shop.spec.mjs";
 import * as weeks from "./weeks.spec.mjs";
 import * as dialogs from "./dialogs.spec.mjs";
 import * as mobile from "./mobile.spec.mjs";
+import * as sync from "./sync.spec.mjs";
 
-build();
+// `node e2e/run.mjs sync` runs the sync spec against the Firebase emulators (npm run e2e:sync)
+const emulator = process.argv.includes("sync");
+build({ emulator });
 const server = serve();
 const browser = await launch();
 let failed = 0;
-for (const spec of [picker, shop, weeks, dialogs, mobile]) {
+for (const spec of emulator ? [sync] : [picker, shop, weeks, dialogs, mobile]) {
   for (const [name, fn] of Object.entries(spec.tests)) {
     try {
       await fn(browser, server.url);

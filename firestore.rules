@@ -1,10 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // One document per household. The household code in the link is the key,
-    // so nobody can list or guess other households.
+    // One document per household. The household code in the link is the key, so nobody can
+    // list or guess other households. Writes are merges, so the shape check sees the whole
+    // document as it will be after the write.
+    function household(d) {
+      return d.keys().hasOnly(['meals', 'weeks', 'aisles'])
+        && (!('meals' in d) || (d.meals is map && d.meals.size() <= 500))
+        && (!('weeks' in d) || (d.weeks is map && d.weeks.size() <= 1000))
+        && (!('aisles' in d) || (d.aisles is map && d.aisles.size() <= 2000));
+    }
     match /households/{id} {
-      allow get, create, update: if request.auth != null && id.size() >= 20;
+      allow get: if request.auth != null && id.matches('^[a-z0-9]{20,40}$');
+      allow create, update: if request.auth != null && id.matches('^[a-z0-9]{20,40}$')
+        && household(request.resource.data);
     }
   }
 }

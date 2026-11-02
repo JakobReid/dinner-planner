@@ -11,13 +11,15 @@ const ROOT = new URL("..", import.meta.url).pathname;
 export const OUT = path.join(ROOT, "dist-test");
 const TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".map": "application/json" };
 
-export function build() {
+// `emulator` points the build at the local Firebase emulators instead of blanking sync.
+export function build({ emulator = false } = {}) {
   const env = {
     ...process.env,
-    VITE_FIREBASE_API_KEY: "",
+    VITE_FIREBASE_API_KEY: emulator ? "fake" : "",
     VITE_FIREBASE_AUTH_DOMAIN: "",
-    VITE_FIREBASE_PROJECT_ID: "",
-    VITE_FIREBASE_APP_ID: "",
+    VITE_FIREBASE_PROJECT_ID: emulator ? "demo-dinner" : "",
+    VITE_FIREBASE_APP_ID: emulator ? "1:1:web:1" : "",
+    VITE_FIREBASE_EMULATOR: emulator ? "1" : "",
   };
   execSync(`npx vite build --outDir ${OUT} --logLevel error`, { cwd: ROOT, env, stdio: "inherit" });
 }

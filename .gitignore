@@ -5,3 +5,4 @@ dist-test/
 .env.*.local
 .firebase/
 .DS_Store
+*-debug.log

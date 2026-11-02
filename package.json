@@ -8,17 +8,23 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{js,css}\" \"e2e/**/*.mjs\" index.html",
+    "format": "prettier --write \"src/**/*.{js,css}\" \"e2e/**/*.mjs\" \"test/**/*.js\" index.html",
+    "test": "vitest run",
+    "test:rules": "firebase emulators:exec --only firestore \"RULES=1 vitest run\"",
     "e2e": "node e2e/run.mjs",
-    "deploy": "vite build && firebase deploy --only hosting"
+    "e2e:sync": "firebase emulators:exec --only firestore,auth --project demo-dinner \"node e2e/run.mjs sync\"",
+    "check": "npm run lint && npm test && npm run test:rules && npm run e2e && npm run e2e:sync",
+    "deploy": "vite build && firebase deploy --only hosting,firestore:rules"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^6.0.0",
     "eslint": "^10.14.0",
     "globals": "^17.14.0",
     "playwright": "^1.46.1",
     "prettier": "^3.9.10",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "firebase": "^13.1.0"

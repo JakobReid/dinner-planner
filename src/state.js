@@ -1,5 +1,6 @@
-// Household state: meals, weeks and aisle overrides. One object, saved whole to localStorage and
-// (when sync is on) to the household document. Views read `state` and call the operations below.
+// Household state: meals, weeks and aisle overrides. One object, saved whole to localStorage; each
+// operation also describes its change as a nested patch (DEL = remove) that sync.js merges into the
+// household document. Views read `state` and call the operations below.
 import { DAYS, addDays, dayName, parse, thisWeek, todayStr, weekStartOf, isDateKey } from "./dates.js";
 import { AISLE_LABEL, guessAisle } from "./aisles.js";
 
@@ -9,6 +10,8 @@ export const ing = (name, optional) => ({ name, optional: !!optional });
 export const maybeLast = (list) => list.sort((a, b) => a.optional - b.optional);
 export const uid = () => Math.random().toString(36).slice(2, 9);
 export const keyOf = (name) => name.trim().toLowerCase();
+export const DEL = Symbol("delete");
+const isMap = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 
 const DEFAULTS = {
   meals: [
@@ -91,7 +94,9 @@ const blankWeek = () => ({ plan: {}, checked: {}, extras: [] });
 // Repairs any stored shape into the current one. Safe to run on anything, including old data.
 export function normalise(input) {
   const s = JSON.parse(JSON.stringify(input || {}));
-  s.meals = Array.isArray(s.meals) ? s.meals : [];
+  // the household document keeps meals as a map by id so edits are field-level
+  if (isMap(s.meals)) s.meals = Object.values(s.meals);
+  s.meals = Array.isArray(s.meals) ? s.meals.filter(isMap) : [];
   s.meals.forEach((m) => {
     const list = Array.isArray(m.ingredients) ? m.ingredients : [];
     m.ingredients = maybeLast(
@@ -101,12 +106,12 @@ export function normalise(input) {
     );
     m.notes = m.notes || "";
   });
-  s.weeks = s.weeks && typeof s.weeks === "object" ? s.weeks : {};
-  s.aisles = s.aisles && typeof s.aisles === "object" ? s.aisles : {};
+  s.weeks = isMap(s.weeks) ? s.weeks : {};
+  s.aisles = isMap(s.aisles) ? s.aisles : {};
   for (const k in s.aisles) if (!AISLE_LABEL[s.aisles[k]]) delete s.aisles[k];
 
   // v1 kept a single week at the top level
-  if (s.week && typeof s.week === "object") {
+  if (isMap(s.week)) {
     let ws = typeof s.weekStart === "string" ? s.weekStart : thisWeek();
     if (parse(ws).getDay() === 0) ws = addDays(ws, 1);
     ws = weekStartOf(parse(ws));
@@ -118,9 +123,9 @@ export function normalise(input) {
   delete s.weekStart;
 
   for (const k in s.weeks) {
-    const w = s.weeks[k] || {};
-    w.plan = w.plan && typeof w.plan === "object" ? w.plan : {};
-    w.checked = w.checked && typeof w.checked === "object" ? w.checked : {};
+    const w = isMap(s.weeks[k]) ? s.weeks[k] : {};
+    w.plan = isMap(w.plan) ? w.plan : {};
+    w.checked = isMap(w.checked) ? w.checked : {};
     w.extras = Array.isArray(w.extras) ? w.extras : [];
     s.weeks[k] = w;
   }
@@ -149,8 +154,11 @@ export function normalise(input) {
     Object.assign(nw.checked, w.checked);
     nw.extras.push(...w.extras);
   }
-  return s;
+  return { meals: s.meals, weeks: s.weeks, aisles: s.aisles };
 }
+
+// The household document shape: meals keyed by id.
+export const toDoc = (s) => ({ ...s, meals: Object.fromEntries(s.meals.map((m) => [m.id, m])) });
 
 function loadLocal() {
   try {
@@ -182,37 +190,24 @@ export function replaceState(data) {
 
 // Remote persistence is plugged in by sync.js; without it saves are local only.
 let remote = null;
-let saving = false;
-let dirty = false;
-let onSaveError = () => {};
-export function setRemote(fn, onError) {
+export function setRemote(fn) {
   remote = fn;
-  onSaveError = onError || onSaveError;
 }
-export const isSaving = () => saving || dirty;
 
-export function save() {
-  for (const k in state.weeks) {
-    const w = state.weeks[k];
-    if (!Object.keys(w.plan).length && !w.extras.length && !Object.keys(w.checked).length) delete state.weeks[k];
-  }
+// Stores locally and hands the patch to sync. `patch` mirrors the document shape; DEL removes a field.
+export function save(patch) {
   storeLocal(state);
-  if (remote) {
-    dirty = true;
-    flush();
-  }
+  if (remote && patch) remote(patch);
 }
-export async function flush() {
-  if (saving || !dirty) return;
-  saving = true;
-  dirty = false;
-  try {
-    await remote(JSON.parse(JSON.stringify(state)));
-  } catch {
-    onSaveError();
+
+// A week with nothing in it is dropped from state; the patch removes it from the document.
+function weekPatch(key, change) {
+  const w = state.weeks[key];
+  if (w && !Object.keys(w.plan).length && !w.extras.length && !Object.keys(w.checked).length) {
+    delete state.weeks[key];
+    return { weeks: { [key]: DEL } };
   }
-  saving = false;
-  if (dirty) flush();
+  return { weeks: { [key]: change } };
 }
 
 /* ---------- lookups ---------- */
@@ -269,11 +264,11 @@ export function setNight(day, value) {
   const w = wk(true);
   if (value) w.plan[day] = value;
   else delete w.plan[day];
-  save();
+  save(weekPatch(viewWeek, { plan: { [day]: value || DEL } }));
 }
 export function clearWeek(key) {
   delete state.weeks[key];
-  save();
+  save({ weeks: { [key]: DEL } });
 }
 // Random meals for the empty nights from today on, avoiding this and last week's picks where possible.
 export function fillEmptyNights() {
@@ -284,56 +279,70 @@ export function fillEmptyNights() {
   const used = new Set([...Object.values(w.plan), ...Object.values(wk(false, addDays(viewWeek, -7)).plan)]);
   let pool = state.meals.map((m) => m.id).filter((id) => !used.has(id));
   const filled = [];
+  const plan = {};
   empty.forEach((d) => {
     if (!pool.length) pool = state.meals.map((m) => m.id).filter((id) => !Object.values(w.plan).includes(id));
     if (!pool.length) pool = state.meals.map((m) => m.id);
     const id = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-    w.plan[d] = id;
+    w.plan[d] = plan[d] = id;
     filled.push(DAYS.indexOf(d));
   });
-  save();
+  save({ weeks: { [viewWeek]: { plan } } });
   return { empty, filled };
 }
 export function upsertMeal(id, { name, ingredients, notes }) {
-  if (id) Object.assign(mealById(id), { name, ingredients, notes });
+  let m = mealById(id);
+  if (m) Object.assign(m, { name, ingredients, notes });
   else {
     id = uid();
-    state.meals.push({ id, name, ingredients, notes });
+    m = { id, name, ingredients, notes };
+    state.meals.push(m);
   }
-  save();
+  save({ meals: { [id]: m } });
   return id;
 }
 export function deleteMeal(id) {
   state.meals = state.meals.filter((x) => x.id !== id);
-  for (const k in state.weeks) for (const d of DAYS) if (state.weeks[k].plan[d] === id) delete state.weeks[k].plan[d];
-  save();
+  const patch = { meals: { [id]: DEL }, weeks: {} };
+  for (const k of Object.keys(state.weeks)) {
+    const plan = {};
+    for (const d of DAYS) {
+      if (state.weeks[k].plan[d] !== id) continue;
+      delete state.weeks[k].plan[d];
+      plan[d] = DEL;
+    }
+    if (Object.keys(plan).length) Object.assign(patch.weeks, weekPatch(k, { plan }).weeks);
+  }
+  save(patch);
 }
 export function tick(key, on) {
   const w = wk(true);
   if (on) w.checked[key] = true;
   else delete w.checked[key];
-  save();
+  save(weekPatch(viewWeek, { checked: { [key]: on ? true : DEL } }));
 }
+// Extras are small and per week, so the list is written whole.
+const extrasPatch = () => weekPatch(viewWeek, { extras: wk().extras });
 export function addExtra(name) {
   wk(true).extras.push({ id: uid(), name, done: false });
-  save();
+  save(extrasPatch());
 }
 export function setExtraDone(extra, done) {
   extra.done = done;
-  save();
+  save(extrasPatch());
 }
 export function removeExtra(extra) {
   const w = wk(true);
   w.extras = w.extras.filter((y) => y !== extra);
-  save();
+  save(extrasPatch());
 }
 export function untickAll() {
   const w = wk(true);
   w.checked = {};
   w.extras.forEach((x) => (x.done = false));
-  save();
+  save(weekPatch(viewWeek, { checked: DEL, extras: w.extras }));
 }
 export function setAisle(key, aisle) {
   state.aisles[key] = aisle;
-  save();
+  save({ aisles: { [key]: aisle } });
 }
