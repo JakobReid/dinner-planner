@@ -12,6 +12,8 @@ npm run dev
 ```
 
 `npm run build` writes `dist/`, `npm run deploy` builds and pushes it and the Firestore rules to Firebase.
+GitHub Actions does the same on every push to main once the checks pass (`.github/workflows/deploy.yml`);
+it needs the four `VITE_FIREBASE_*` values and a `FIREBASE_SERVICE_ACCOUNT` key JSON as repo secrets.
 
 Checks, or all of them with `npm run check`:
 
