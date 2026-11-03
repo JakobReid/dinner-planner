@@ -8,7 +8,8 @@ let api = null;
 
 export function initLists(a) {
   api = a;
-  $("footRow").hidden = false;
+  $("acctBtn").hidden = false;
+  $("listsBtn").hidden = false;
   renderProfile();
   $("listsBtn").onclick = () => {
     fillLists();

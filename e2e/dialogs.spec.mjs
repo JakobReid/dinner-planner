@@ -51,4 +51,19 @@ export const tests = {
     );
     await ctx.close();
   },
+  "settings: dark theme toggles and sticks across a reload": async (browser, url) => {
+    const { pg, ctx } = await open(browser, url);
+    assert.equal(await pg.evaluate(() => document.documentElement.dataset.theme), undefined, "light by default");
+    await pg.click("#settingsBtn");
+    await pg.locator('#themeSeg button[data-theme="dark"]').click();
+    assert.equal(await pg.evaluate(() => document.documentElement.dataset.theme), "dark");
+    await pg.locator("#settingsDlg [data-close]").click();
+    await pg.reload();
+    await pg.waitForSelector("#days .day");
+    assert.equal(await pg.evaluate(() => document.documentElement.dataset.theme), "dark", "remembered");
+    await pg.click("#settingsBtn");
+    await pg.locator('#themeSeg button[data-theme="light"]').click();
+    assert.equal(await pg.evaluate(() => document.documentElement.dataset.theme), undefined);
+    await ctx.close();
+  },
 };

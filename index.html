@@ -7,6 +7,14 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <title>I feel like dinner tonight</title>
+    <script>
+      // apply a saved dark theme before first paint
+      try {
+        if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = "dark";
+      } catch {
+        /* storage off */
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -66,11 +74,27 @@
         </div>
       </section>
       <footer class="foot">
-        <div class="footrow" id="footRow" hidden>
-          <button class="profile" id="acctBtn">
+        <div class="footrow">
+          <button class="profile" id="acctBtn" hidden>
             <span class="who"><strong id="whoName">Guest</strong><small id="whoSub">Tap to sign in</small></span>
           </button>
-          <button class="btn ghost" id="listsBtn">My lists</button>
+          <button class="btn ghost" id="listsBtn" hidden>My lists</button>
+          <button class="cog" id="settingsBtn" aria-label="Settings">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
+              />
+            </svg>
+          </button>
         </div>
         <p class="sync"><span id="sync"></span></p>
       </footer>
@@ -99,6 +123,20 @@
       <div class="dlg">
         <h2>Your lists</h2>
         <div class="lists" id="listsBody" tabindex="-1" autofocus></div>
+        <div class="r"><button class="btn ghost" data-close>Close</button></div>
+      </div>
+    </dialog>
+
+    <dialog id="settingsDlg">
+      <div class="dlg">
+        <h2>Settings</h2>
+        <div class="lists">
+          <h3>Theme</h3>
+          <div class="seg" id="themeSeg">
+            <button type="button" data-theme="light" aria-pressed="true">Light</button>
+            <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+          </div>
+        </div>
         <div class="r"><button class="btn ghost" data-close>Close</button></div>
       </div>
     </dialog>

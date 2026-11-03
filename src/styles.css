@@ -17,23 +17,6 @@
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #111915;
-    --surface: #1a251f;
-    --ink: #e4ede7;
-    --muted: #97a99e;
-    --line: #2b3a31;
-    --accent: #e4ede7;
-    --accent-ink: #111915;
-    --chip: #23312a;
-    --hot: #f08167;
-    --tape: #6aff6c;
-    --tape-ink: #0c140d;
-    --tape-blend: normal;
-    color-scheme: dark;
-  }
-}
 :root[data-theme="dark"] {
   --bg: #111915;
   --surface: #1a251f;
@@ -933,6 +916,40 @@ label.f textarea {
 }
 .footrow .btn {
   flex: none;
+}
+.footrow .cog {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 0;
+  border-radius: 12px;
+  background: var(--chip);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+.footrow .cog svg {
+  width: 22px;
+  height: 22px;
+}
+/* theme picker: two chips, the chosen one in ink */
+.seg {
+  display: flex;
+  gap: 8px;
+}
+.seg button {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+}
+.seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 .sync {
   margin: 10px 0 0;
