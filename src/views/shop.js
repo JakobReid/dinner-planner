@@ -70,7 +70,7 @@ export function renderShop() {
         "label",
         { for: id },
         it.optional ? el("span", { class: "tag" }, "maybe ") : null,
-        it.name,
+        el("span", { class: "t" }, it.name),
         it.meals.length > 1 ? el("span", { class: "qty" }, "×" + it.meals.length) : null,
         el("span", { class: "from" }, uniq.join(", ")),
       ),
@@ -91,7 +91,7 @@ export function renderShop() {
           renderShop();
         },
       }),
-      el("label", { for: id }, x.name),
+      el("label", { for: id }, el("span", { class: "t" }, x.name)),
       aislePicker(keyOf(x.name), x.name),
       el(
         "button",

@@ -4,12 +4,14 @@
   --ink: #1b2a22;
   --muted: #5b6c62;
   --line: #d3ddd5;
-  --accent: #2f6b4f;
-  --accent-ink: #ffffff;
+  --accent: #1b2a22;
+  --accent-ink: #f4f7f3;
   --chip: #e1ebe3;
   --hot: #c9452a;
-  --butter: #f5d66b;
-  --butter-ink: #3a2f05;
+  --tape: #6aff6c;
+  --tape-ink: #111a12;
+  --hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
+  --tape-blend: multiply;
   color-scheme: light;
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
@@ -22,12 +24,13 @@
     --ink: #e4ede7;
     --muted: #97a99e;
     --line: #2b3a31;
-    --accent: #86c9a5;
-    --accent-ink: #0e1a13;
+    --accent: #e4ede7;
+    --accent-ink: #111915;
     --chip: #23312a;
     --hot: #f08167;
-    --butter: #e5c451;
-    --butter-ink: #2a2104;
+    --tape: #6aff6c;
+    --tape-ink: #0c140d;
+    --tape-blend: normal;
     color-scheme: dark;
   }
 }
@@ -37,12 +40,13 @@
   --ink: #e4ede7;
   --muted: #97a99e;
   --line: #2b3a31;
-  --accent: #86c9a5;
-  --accent-ink: #0e1a13;
+  --accent: #e4ede7;
+  --accent-ink: #111915;
   --chip: #23312a;
   --hot: #f08167;
-  --butter: #e5c451;
-  --butter-ink: #2a2104;
+  --tape: #6aff6c;
+  --tape-ink: #0c140d;
+  --tape-blend: normal;
   color-scheme: dark;
 }
 html {
@@ -189,8 +193,8 @@ nav .count {
   padding: 0 0.35em;
   margin-left: 4px;
   border-radius: 99px;
-  background: var(--butter);
-  color: var(--butter-ink);
+  background: var(--tape);
+  color: var(--tape-ink);
   font-size: 0.75rem;
   line-height: 1.5;
 }
@@ -227,12 +231,14 @@ section {
   font-size: 0.8rem;
 }
 .day .m {
-  font-size: 1.25rem;
+  font-family: var(--hand);
+  font-size: 1.65rem;
   font-weight: 700;
-  letter-spacing: -0.015em;
+  line-height: 1;
 }
 .day .m.empty {
   color: var(--muted);
+  font-family: inherit;
   font-weight: 400;
   font-size: 1rem;
 }
@@ -243,21 +249,39 @@ section {
 }
 .day .i {
   display: block;
-  font-size: 0.85rem;
+  font-size: 1.1rem;
+  line-height: 1.15;
   color: var(--muted);
-  font-weight: 400;
-  margin-top: 2px;
+  font-weight: 500;
+  margin-top: 3px;
 }
-/* today: a marker-pen highlight on the day and the meal name, text stays on the same columns */
+/* today: a strip of masking tape over the day and the meal name; text stays on the same columns */
 .day.today .dn,
 .day.today .n {
-  background: var(--butter);
-  color: var(--butter-ink);
-  padding: 0.05em 0.3em;
-  margin: 0 -0.3em;
-  border-radius: 4px;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
+  display: inline-block;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    var(--tape);
+  color: var(--tape-ink);
+  padding: 0.08em 0.45em 0.12em;
+  margin: 0 -0.35em;
+  transform: rotate(-1.2deg);
+  mix-blend-mode: var(--tape-blend);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    calc(100% - 2px) 22%,
+    100% 48%,
+    calc(100% - 1.5px) 74%,
+    100% 100%,
+    0 100%,
+    2px 70%,
+    0 46%,
+    1.5px 20%
+  );
+}
+.day.today .dn {
+  padding: 0.05em 0.4em;
 }
 .actions {
   display: flex;
@@ -291,18 +315,41 @@ section {
 /* meals */
 .meal {
   display: block;
+  position: relative;
   width: 100%;
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 14px 16px;
-  margin-bottom: 10px;
+  padding: 16px 16px 14px;
+  margin: 8px 0 12px;
+}
+/* a bit of tape holding each card up */
+.meal::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 20px;
+  width: 58px;
+  height: 17px;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    var(--tape);
+  opacity: 0.92;
+  mix-blend-mode: var(--tape-blend);
+  transform: rotate(-4deg);
+  clip-path: polygon(0 0, 100% 2px, calc(100% - 2px) 50%, 100% 100%, 0 calc(100% - 2px), 2px 50%);
+}
+.meal:nth-child(even)::before {
+  left: auto;
+  right: 22px;
+  transform: rotate(3deg);
 }
 .meal h3 {
   margin: 0 0 6px;
-  font-size: 1.15rem;
-  letter-spacing: -0.01em;
+  font-family: var(--hand);
+  font-size: 1.6rem;
+  line-height: 1;
 }
 .chips {
   display: flex;
@@ -312,8 +359,11 @@ section {
 .chip {
   background: var(--chip);
   border-radius: 99px;
-  padding: 2px 10px;
-  font-size: 0.85rem;
+  padding: 1px 10px 2px;
+  font-family: var(--hand);
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.2;
 }
 .chip.opt {
   background: none;
@@ -341,23 +391,67 @@ section {
   align-items: flex-start;
   gap: 12px;
   padding: 9px 2px;
+  position: relative;
   border-bottom: 1px solid var(--line);
 }
 .item input {
+  appearance: none;
   width: 24px;
   height: 24px;
   margin: 1px 0 0;
-  accent-color: var(--accent);
+  border: 2px solid var(--muted);
+  /* a box drawn by hand is never quite square */
+  border-radius: 6px 4px 7px 3px / 4px 6px 3px 7px;
+  background: none;
   flex: none;
+  position: relative;
+  cursor: pointer;
+}
+.item input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+/* a quick pen tick, bigger than the box so it runs out of it; three hands so a list isn't a row of clones */
+.item input:checked::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -7px;
+  width: 30px;
+  height: 25px;
+  background: var(--ink);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 30'><path d='M3 17.5c3.2 1.4 6.6 5.2 8.9 9.1C15.4 17.9 22.6 9.3 33 2.2' fill='none' stroke='black' stroke-width='3.1' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 30'><path d='M3 17.5c3.2 1.4 6.6 5.2 8.9 9.1C15.4 17.9 22.6 9.3 33 2.2' fill='none' stroke='black' stroke-width='3.1' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    center / contain no-repeat;
+  pointer-events: none;
+}
+.item:nth-child(3n + 1) input:checked::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 30'><path d='M4 15.5c2.6 2.6 5 6.4 6.8 10.6 3.8-8.4 12.4-16.8 22.4-23' fill='none' stroke='black' stroke-width='2.9' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 30'><path d='M4 15.5c2.6 2.6 5 6.4 6.8 10.6 3.8-8.4 12.4-16.8 22.4-23' fill='none' stroke='black' stroke-width='2.9' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  transform: rotate(-6deg) translate(1px, 1px);
+}
+.item:nth-child(3n) input:checked::after {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 30'><path d='M2.5 19c4 .4 7.2 3.6 9.4 7.6C14.6 18 21.6 10.4 32.5 4' fill='none' stroke='black' stroke-width='3.3' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 30'><path d='M2.5 19c4 .4 7.2 3.6 9.4 7.6C14.6 18 21.6 10.4 32.5 4' fill='none' stroke='black' stroke-width='3.3' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  transform: rotate(5deg) translate(-1px, -2px) scale(1.06);
+}
+.item .t {
+  position: relative;
 }
 .item label {
   flex: 1;
   cursor: pointer;
+  font-family: var(--hand);
+  font-size: 1.4rem;
+  font-weight: 500;
+  line-height: 1.05;
 }
 .item .from {
   display: block;
-  font-size: 0.8rem;
+  font-size: 1.05rem;
   color: var(--muted);
+  margin-top: 2px;
 }
 .item .qty {
   font-weight: 700;
@@ -366,8 +460,23 @@ section {
   font-size: 0.9rem;
 }
 .item.done label {
-  text-decoration: line-through;
   color: var(--muted);
+}
+/* struck through by hand rather than the browser's ruler */
+.item.done .t::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  right: -8px;
+  top: 38%;
+  height: 12px;
+  background: var(--ink);
+  opacity: 0.85;
+  transform: rotate(-1.5deg);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 7.5c28-3.5 55 1 85-1.5s55 3 80 .5 28-2.5 31-1' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>")
+    center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 7.5c28-3.5 55 1 85-1.5s55 3 80 .5 28-2.5 31-1' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>")
+    center / 100% 100% no-repeat;
 }
 .item .x {
   background: none;
@@ -412,13 +521,49 @@ section {
   gap: 8px;
   margin-top: 14px;
 }
+/* a line on the list, not a form field */
 .add input {
   flex: 1;
   min-width: 0;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 11px 14px;
+  border: 0;
+  border-bottom: 2px solid var(--line);
+  border-radius: 0;
+  background: none;
+  padding: 6px 2px;
+  font-family: var(--hand);
+  font-size: 1.4rem;
+  line-height: 1.05;
+}
+.add input::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+.add input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--ink);
+}
+/* a pen plus beside the line */
+.add .plus {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -2px 0 0;
+  border: 0;
+  background: none;
+  position: relative;
+}
+.add .plus::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  background: var(--ink);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12.2 4.5c.2 5 .1 10-.3 15M4.5 12.4c5-.5 10-.3 15 .1' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round'/></svg>")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12.2 4.5c.2 5 .1 10-.3 15M4.5 12.4c5-.5 10-.3 15 .1' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round'/></svg>")
+    center / contain no-repeat;
+}
+.add .plus:active::before {
+  background: var(--muted);
 }
 .empty-state {
   background: var(--surface);
@@ -430,6 +575,12 @@ section {
 }
 
 /* dialogs */
+#mName,
+#mIng {
+  font-family: var(--hand);
+  font-size: 1.35rem;
+}
+
 dialog {
   overflow: hidden;
   overscroll-behavior: contain;
@@ -503,6 +654,14 @@ dialog::backdrop {
 .pick .pr button:first-child {
   flex: 1;
   min-width: 0;
+  font-family: var(--hand);
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1.05;
+}
+.pick .pr button:first-child small {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-size: 0.82rem;
 }
 .pick button.edit {
   flex: none;
