@@ -1,7 +1,7 @@
 // "Pick a dinner" dialog for one night: search meals, pick one, or add/edit a meal without leaving.
 import { DAYS, DAY_FULL, addDays, fmt } from "../dates.js";
 import { $, el, outIcon, clearIcon, plusIcon, editIcon } from "../dom.js";
-import { state, viewWeek, wk, setNight, matchMeals } from "../state.js";
+import { viewWeek, wk, setNight, matchMeals } from "../state.js";
 import { render } from "../render.js";
 import { openDialog, closeDialog } from "../dialogs.js";
 import { openMeal } from "./editor.js";
