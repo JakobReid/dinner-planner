@@ -5,8 +5,13 @@ const meal = (over = {}) => ({ id: "m1", name: "Tacos", ingredients: [], notes: 
 
 describe("normalise", () => {
   it("builds the full shape from nothing", () => {
-    expect(normalise(null)).toEqual({ meals: [], weeks: {}, aisles: {} });
-    expect(normalise({ meals: "nope", weeks: 3, aisles: [] })).toEqual({ meals: [], weeks: {}, aisles: {} });
+    const blank = { name: "Home", members: {}, meals: [], weeks: {}, aisles: {} };
+    expect(normalise(null)).toEqual(blank);
+    expect(normalise({ meals: "nope", weeks: 3, aisles: [], name: 4, members: [] })).toEqual(blank);
+    expect(normalise({ name: "  Lake trip ", members: { u1: true } })).toMatchObject({
+      name: "Lake trip",
+      members: { u1: true },
+    });
   });
 
   it("does not mutate its input", () => {

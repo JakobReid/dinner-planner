@@ -1,19 +1,58 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // One document per household. The household code in the link is the key, so nobody can
-    // list or guess other households. Writes are merges, so the shape check sees the whole
-    // document as it will be after the write.
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function validId(id) { return id.matches('^[a-z0-9]{20,40}$'); }
+
+    // A household document as it will look after the write. Writes are merges, so this
+    // sees the whole document, not just the patch.
     function household(d) {
-      return d.keys().hasOnly(['meals', 'weeks', 'aisles'])
+      return d.keys().hasOnly(['name', 'members', 'meals', 'weeks', 'aisles'])
+        && (!('name' in d) || (d.name is string && d.name.size() <= 60))
+        && (!('members' in d) || (d.members is map && d.members.size() <= 50))
         && (!('meals' in d) || (d.meals is map && d.meals.size() <= 500))
         && (!('weeks' in d) || (d.weeks is map && d.weeks.size() <= 1000))
         && (!('aisles' in d) || (d.aisles is map && d.aisles.size() <= 2000));
     }
+    function hasMembers(d) { return 'members' in d && d.members.size() > 0; }
+    function isMember(d) { return hasMembers(d) && uid() in d.members; }
+    // Nobody edits anyone else's membership: the only member entry a write may touch is your own.
+    function membersOnlySelf() {
+      return request.resource.data.get('members', {}).diff(resource.data.get('members', {}))
+        .affectedKeys().hasOnly([uid()]);
+    }
+    function onlyMembersChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']);
+    }
+
+    // One document per household; everyone in it is equal. The code in the invite link is
+    // the key, so nobody can list households, and joining is adding yourself to members.
     match /households/{id} {
-      allow get: if request.auth != null && id.matches('^[a-z0-9]{20,40}$');
-      allow create, update: if request.auth != null && id.matches('^[a-z0-9]{20,40}$')
-        && household(request.resource.data);
+      // households from before membership have no members map; anyone with the code can
+      // still read them so they can claim them
+      allow get: if signedIn() && validId(id) && (isMember(resource.data) || !hasMembers(resource.data));
+      allow create: if signedIn() && validId(id) && household(request.resource.data)
+        && 'members' in request.resource.data
+        && request.resource.data.members.keys().hasOnly([uid()]) && uid() in request.resource.data.members;
+      allow update: if signedIn() && validId(id) && (
+        (isMember(resource.data) && household(request.resource.data) && membersOnlySelf())
+        // joining by link or claiming an old household changes nothing but your own entry, so
+        // it skips the shape check: an old document is repaired by its first member afterwards
+        || (!isMember(resource.data) && onlyMembersChanged() && membersOnlySelf()
+            && uid() in request.resource.data.members)
+      );
+      // the last one out turns off the lights
+      allow delete: if signedIn() && isMember(resource.data) && resource.data.members.size() == 1;
+    }
+
+    // Which households a person is in and the one they had open last.
+    match /users/{user} {
+      allow read, delete: if signedIn() && uid() == user;
+      allow create, update: if signedIn() && uid() == user
+        && request.resource.data.keys().hasOnly(['households', 'current'])
+        && (!('households' in request.resource.data) || request.resource.data.households is map)
+        && (!('current' in request.resource.data) || request.resource.data.current is string);
     }
   }
 }

@@ -44,9 +44,15 @@ export const tests = {
     const id = code();
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
     await synced(pg);
-    const d = await until(() => getDoc(id), "seed write");
+    const d = await until(async () => {
+      const x = await getDoc(id);
+      return x && x.meals ? x : null;
+    }, "seed write");
     assert.equal(Object.keys(d.meals).length, 8, "seed meals as a map");
     assert.deepEqual(d.weeks, {});
+    assert.equal(d.name, "Home");
+    assert.equal(Object.keys(d.members).length, 1, "the device's user is the only member");
+    assert.equal(await pg.textContent("#listBtn"), "Home");
     await plan(pg, "Mon");
     await until(async () => (await getDoc(id))?.weeks[WK]?.plan?.Mon, "planned night in the document");
     await synced(pg);
@@ -83,6 +89,7 @@ export const tests = {
       return x && !Array.isArray(x.meals) ? x : null;
     }, "meals migrated to a map");
     assert.deepEqual(Object.keys(d.meals).sort(), ["a1", "a2"]);
+    assert.equal(Object.keys(d.members).length, 1, "claimed by the device that opened it");
     assert.equal(d.meals.a1.ingredients[0].name, "rice");
     await plan(pg, "Tue");
     const after = await until(async () => (await getDoc(id))?.weeks[WK]?.plan?.Tue && getDoc(id), "night written");
@@ -105,10 +112,42 @@ export const tests = {
     await a.pg.waitForFunction(() => !document.querySelector("#days .day:nth-child(7) .m.empty"));
     const d = await getDoc(id);
     assert.equal(Object.keys(d.weeks[WK].plan).sort().join(), "Thu,Wed", "both nights in the document");
+    assert.equal(Object.keys(d.members).length, 2, "the second device joined by link");
     noErrors(a.errors);
     noErrors(b.errors);
     await a.ctx.close();
     await b.ctx.close();
+  },
+
+  "lists: rename, new list, switch back, leave": async (browser, url) => {
+    const id = code();
+    const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
+    await synced(pg);
+    await until(async () => (await getDoc(id))?.meals, "seed");
+    await pg.click("#listBtn");
+    assert.equal(await pg.locator("#listsDlg[open]").count(), 1);
+    await pg.fill("#listsBody input.lname", "Our place");
+    await pg.locator("#listsBody input.lname").first().dispatchEvent("change");
+    await until(async () => (await getDoc(id))?.name === "Our place", "rename written");
+    assert.equal(await pg.textContent("#listBtn"), "Our place");
+    pg.once("dialog", (d) => d.accept("Lake trip"));
+    await pg.locator("#listsBody button", { hasText: "New list" }).click();
+    await pg.waitForFunction(() => document.getElementById("listBtn").textContent === "Lake trip");
+    const trip = new URL(pg.url()).searchParams.get("h");
+    assert.notEqual(trip, id, "a new list has its own code");
+    assert.equal(await pg.locator("#days .day .m:not(.empty)").count(), 0, "new list starts empty");
+    assert.equal(await pg.locator("#mealList .meal").count(), 0);
+    await pg.click("#listBtn");
+    await pg.locator("#listsBody .lrow", { hasText: "Our place" }).click();
+    await pg.waitForFunction(() => document.getElementById("listBtn").textContent === "Our place");
+    assert.equal(await pg.locator("#mealList .meal").count(), 8, "back to the first list with its meals");
+    await pg.click("#listBtn");
+    pg.once("dialog", (d) => d.accept());
+    await pg.locator("#listsBody button", { hasText: "Leave" }).click();
+    await pg.waitForFunction(() => document.getElementById("listBtn").textContent === "Lake trip");
+    await until(async () => (await getDoc(id)) === null, "last member out deletes the list");
+    assert.deepEqual(errors, []);
+    await ctx.close();
   },
 
   "sync: changes made offline land when back online": async (browser, url) => {

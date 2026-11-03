@@ -24,22 +24,21 @@ Checks, or all of them with `npm run check`:
 
 ## How sync works
 
-One Firestore document per household at `households/{code}`; the 24-character code in the share link
-is the only key. Anonymous auth signs every device in. Each state operation describes its change as a
-nested patch which sync merges into the document field by field, so two phones editing different
-things never overwrite each other. The offline cache queues writes without signal and replays them
-when back online. In the document, meals are a map keyed by id so a meal edit is one field write.
+One Firestore document per household at `households/{code}`, with a `members` map of the people in it,
+and a `users/{uid}` document naming the households you're in and the one you had open last. Everyone
+starts signed in anonymously; "Sign in with Google" or an email link upgrades that same account so
+nothing is lost, and from then on your lists follow you between devices.
 
-## Layout
+The 24-character code in the invite link is the only key. Opening a link adds you to that household's
+members; nobody can list households or guess codes. Everyone in a list is equal: anyone can invite,
+rename, copy the list to one of their own, or leave, and the last person out deletes it. There are no
+owners or admins.
 
-- `src/main.js` boots the views and sync
-- `src/state.js` the household object, repairs and migrations, and every operation that changes it
-- `src/sync.js` Firestore: household code, share link, snapshot in / write out
-- `src/dates.js` calendar helpers; the week runs Friday to Thursday
-- `src/aisles.js` aisle list and the keyword table that files ingredients into them
-- `src/dialogs.js` scroll lock and keyboard handling for the two dialogs
-- `src/dom.js` element helpers, icons, toast
-- `src/views/` one module per screen: week, meals, shop, picker, editor, tabs
-- `test/` Vitest unit tests; `test/rules/` needs the emulator
-- `e2e/` Playwright checks against a built copy
-- `firestore.rules` security rules: signed-in only, valid codes only, known top-level fields, no list or delete
+Each state operation describes its change as a nested patch which sync merges into the document field
+by field, so two phones editing different things never overwrite each other. The offline cache queues
+writes without signal and replays them when back online. Meals are stored as a map keyed by id so a
+meal edit is one field write. Households from before membership are claimed by the first account that
+opens them.
+
+Google and email-link sign-in must be enabled under Authentication > Sign-in method in the Firebase
+console; nothing in the code turns them on.

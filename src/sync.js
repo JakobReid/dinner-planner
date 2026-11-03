@@ -1,28 +1,74 @@
-// Household sync over Firestore. One document per household; the code in the link is the key.
-// Writes are field-level merges queued through the offline cache, so the app works without signal
-// and two phones editing different things never overwrite each other. Without Firebase config the
-// app runs on this device only.
+// Household sync over Firestore. One document per household, a members map on each, and a
+// users/{uid} doc naming the households you're in and the one you had open last. Everyone
+// starts anonymous; signing in with Google or an email link upgrades that same account so
+// nothing is lost. Writes are field-level merges through the offline cache. Without Firebase
+// config the app runs on this device only.
 import { initializeApp } from "firebase/app";
-import { connectAuthEmulator, getAuth, signInAnonymously } from "firebase/auth";
+import {
+  EmailAuthProvider,
+  GoogleAuthProvider,
+  connectAuthEmulator,
+  getAuth,
+  getRedirectResult,
+  isSignInWithEmailLink,
+  linkWithCredential,
+  linkWithPopup,
+  linkWithRedirect,
+  onAuthStateChanged,
+  sendSignInLinkToEmail,
+  signInAnonymously,
+  signInWithCredential,
+  signOut,
+} from "firebase/auth";
 import {
   connectFirestoreEmulator,
+  deleteDoc,
+  deleteField,
+  doc,
+  getDoc,
   initializeFirestore,
+  onSnapshot,
   persistentLocalCache,
   persistentMultipleTabManager,
-  doc,
   setDoc,
-  deleteField,
-  onSnapshot,
+  updateDoc,
 } from "firebase/firestore";
 import { $, toast } from "./dom.js";
 import { DEL, replaceState, setRemote, state, toDoc } from "./state.js";
 import { render } from "./render.js";
+import { initLists, renderLists } from "./views/lists.js";
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
+let auth = null;
+let db = null;
+let uid = null;
+let current = null; // household code in use on this device
+let unsub = null;
+let user = { households: {}, current: null };
+
+const status = (t) => ($("sync").textContent = t);
+const local = {
+  get: (k) => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k, v) => {
+    try {
+      if (v == null) localStorage.removeItem(k);
+      else localStorage.setItem(k, v);
+    } catch {
+      /* ignore */
+    }
+  },
 };
 
 function randomCode() {
@@ -34,49 +80,15 @@ function randomCode() {
     .slice(0, 24);
 }
 
-// From the link, else the one this device joined, else a fresh one; always reflected back into the URL.
-function householdCode() {
+// The code in the URL doubles as the invite link, so keep it in step with the list in use.
+function setUrlCode(code) {
   const u = new URL(location.href);
-  let h = u.searchParams.get("h");
-  if (!h) {
-    try {
-      h = localStorage.getItem("household");
-    } catch {
-      /* ignore */
-    }
-  }
-  if (!h) h = randomCode();
-  try {
-    localStorage.setItem("household", h);
-  } catch {
-    /* ignore */
-  }
-  if (u.searchParams.get("h") !== h) {
-    u.searchParams.set("h", h);
-    history.replaceState(null, "", u.pathname + u.search + location.hash);
-  }
-  return h;
+  if (u.searchParams.get("h") === code) return;
+  if (code) u.searchParams.set("h", code);
+  else u.searchParams.delete("h");
+  history.replaceState(null, "", u.pathname + u.search + location.hash);
 }
-
-async function share() {
-  const u = new URL(location.href);
-  u.hash = "";
-  const link = u.toString();
-  try {
-    if (navigator.share) {
-      await navigator.share({ title: "I feel like dinner tonight", url: link });
-      return;
-    }
-  } catch (e) {
-    if (e && e.name === "AbortError") return;
-  }
-  try {
-    await navigator.clipboard.writeText(link);
-    toast("Link copied. Send it to whoever you plan dinners with.");
-  } catch {
-    prompt("Copy this link:", link);
-  }
-}
+const urlCode = () => new URL(location.href).searchParams.get("h");
 
 // State patches use DEL for removals; Firestore wants its own sentinel.
 const toFields = (v) => {
@@ -86,61 +98,261 @@ const toFields = (v) => {
   return v;
 };
 
-export async function initSync() {
-  const status = $("sync");
-  if (!config.apiKey) {
-    status.textContent = "Saved on this device only.";
-    return;
-  }
-  const fail = () => (status.textContent = "Couldn’t reach the shared plan. Saving on this device for now.");
-  let ref;
+const hhRef = (id) => doc(db, "households", id);
+const userRef = () => doc(db, "users", uid);
+const saveFail = () => toast("Couldn’t save to the shared plan. Changes are kept on this device.");
+const write = (ref, data) => setDoc(ref, toFields(data), { merge: true });
+const saveUser = (patch) => write(userRef(), patch).catch(() => {});
+
+// A brand-new document for this user, seeded from `data` (the document shape, no members).
+const fresh = (data, name) => ({ ...data, name, members: { [uid]: true } });
+const empty = () => ({ meals: {}, weeks: {}, aisles: {} });
+
+/* ---------- which household ---------- */
+
+// Called whenever the signed-in user changes: work out which household to show and subscribe.
+async function attach(u) {
+  uid = u.uid;
+  if (unsub) unsub();
+  unsub = null;
   try {
-    const app = initializeApp(config);
-    const auth = getAuth(app);
-    const db = initializeFirestore(app, {
-      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-    });
-    if (import.meta.env.VITE_FIREBASE_EMULATOR) {
-      connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-      connectFirestoreEmulator(db, "127.0.0.1", 8080);
-    }
-    await signInAnonymously(auth);
-    ref = doc(db, "households", householdCode());
+    const snap = await getDoc(userRef());
+    user = snap.exists() ? { households: {}, current: null, ...snap.data() } : { households: {}, current: null };
   } catch {
-    fail();
-    return;
+    user = { households: {}, current: null };
   }
-  const write = (data) =>
-    setDoc(ref, toFields(data), { merge: true }).catch(() =>
-      toast("Couldn’t save to the shared plan. Changes are kept on this device."),
-    );
-  setRemote(write);
-  $("shareBtn").hidden = false;
-  $("shareBtn").onclick = share;
-  onSnapshot(
+  let code = urlCode() || local.get("household");
+  if (code && !user.households[code]) {
+    // an invite link, or this device's household from before accounts: add yourself
+    await write(hhRef(code), { members: { [uid]: true } });
+  } else if (!code) code = user.current;
+  if (!code) {
+    code = randomCode();
+    await setDoc(hhRef(code), toFields(fresh(toDoc(state), "Home")));
+  }
+  await open(code);
+}
+
+async function open(code) {
+  current = code;
+  local.set("household", code);
+  setUrlCode(code);
+  user.households[code] = true;
+  user.current = code;
+  saveUser({ households: { [code]: true }, current: code });
+  subscribe();
+  renderLists();
+}
+
+function subscribe() {
+  if (unsub) unsub();
+  const ref = hhRef(current);
+  setRemote((data) => write(ref, data).catch(saveFail));
+  unsub = onSnapshot(
     ref,
     { includeMetadataChanges: true },
     (snap) => {
       const { hasPendingWrites, fromCache } = snap.metadata;
       // our own writes are already in state; the server echo arrives once they land
       if (hasPendingWrites) {
-        status.textContent = "Saving…";
+        status("Saving…");
         return;
       }
-      status.textContent = fromCache
-        ? "Offline copy. Changes sync when you’re back online."
-        : "Synced. Anyone with your link sees the same plan.";
-      if (!snap.exists()) {
-        // only the server can say a household is new; seed it from this device
-        if (!fromCache) write(toDoc(state));
+      status(fromCache ? "Offline copy. Changes sync when you’re back online." : "Synced.");
+      const data = snap.exists() ? snap.data() : {};
+      // a document with nothing in it yet (joined by a fresh link) gets this device's meals
+      if (!("meals" in data) && !("weeks" in data) && !("aisles" in data)) {
+        if (!fromCache) write(ref, { ...toDoc(state), name: data.name || "Home" }).catch(saveFail);
         return;
       }
-      const data = snap.data();
       replaceState(data);
       render();
+      renderLists();
       // older documents kept meals as an array; the rules now want the map
-      if (Array.isArray(data.meals)) write({ meals: toDoc(state).meals });
+      if (Array.isArray(data.meals)) write(ref, { meals: toDoc(state).meals }).catch(saveFail);
     },
-    fail,
+    () => status("Couldn’t reach this list. Saving on this device for now."),
   );
+}
+
+/* ---------- lists ---------- */
+
+const api = {
+  get current() {
+    return current;
+  },
+  get lists() {
+    return Object.keys(user.households);
+  },
+  account() {
+    const u = auth && auth.currentUser;
+    return u && !u.isAnonymous ? { email: u.email || u.displayName || "your account" } : null;
+  },
+  // Names of your lists, read live so renames by others show up; lists you can't read any more drop out.
+  async names() {
+    const out = {};
+    await Promise.all(
+      Object.keys(user.households).map(async (id) => {
+        try {
+          const snap = await getDoc(hhRef(id));
+          if (snap.exists()) out[id] = snap.data().name || "Home";
+        } catch {
+          /* no longer a member, or deleted */
+        }
+      }),
+    );
+    for (const id of Object.keys(user.households)) if (!(id in out) && id !== current) delete user.households[id];
+    return out;
+  },
+  async switchTo(id) {
+    if (id === current) return;
+    replaceState({ name: "", meals: [], weeks: {}, aisles: {} });
+    render();
+    await open(id);
+  },
+  async createList(name) {
+    const id = randomCode();
+    await setDoc(hhRef(id), toFields(fresh(empty(), name || "New list")));
+    await api.switchTo(id);
+  },
+  async copyList() {
+    const id = randomCode();
+    await setDoc(hhRef(id), toFields(fresh(toDoc(state), `${state.name} copy`)));
+    await api.switchTo(id);
+  },
+  // Leaving removes you; the last one out deletes the list. You land on another list, or a new Home.
+  async leaveList() {
+    const id = current;
+    if (unsub) unsub();
+    unsub = null;
+    setRemote(null);
+    const others = Object.keys(state.members).filter((m) => m !== uid);
+    if (others.length) await updateDoc(hhRef(id), { [`members.${uid}`]: deleteField() });
+    else await deleteDoc(hhRef(id));
+    delete user.households[id];
+    await saveUser({ households: { [id]: DEL } });
+    replaceState({ name: "", meals: [], weeks: {}, aisles: {} });
+    render();
+    const next = Object.keys(user.households)[0];
+    if (next) await open(next);
+    else {
+      const code = randomCode();
+      await setDoc(hhRef(code), toFields(fresh(empty(), "Home")));
+      await open(code);
+    }
+  },
+  async share() {
+    const u = new URL(location.href);
+    u.hash = "";
+    u.searchParams.set("h", current);
+    const link = u.toString();
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${state.name} on I feel like dinner tonight`, url: link });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      toast("Link copied. Anyone who opens it joins this list.");
+    } catch {
+      prompt("Copy this link:", link);
+    }
+  },
+
+  /* ---------- account ---------- */
+  async signInGoogle() {
+    const provider = new GoogleAuthProvider();
+    try {
+      await linkWithPopup(auth.currentUser, provider);
+      toast("Signed in. Your lists now follow you to any device.");
+      renderLists();
+    } catch (e) {
+      if (e.code === "auth/credential-already-in-use") {
+        // this Google account already exists: switch to it, and it joins this device's list
+        await signInWithCredential(auth, GoogleAuthProvider.credentialFromError(e));
+      } else if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
+        await linkWithRedirect(auth.currentUser, provider);
+      } else if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+        toast("Couldn’t sign in with Google.");
+      }
+    }
+  },
+  async sendEmailLink(email) {
+    const u = new URL(location.href);
+    u.hash = "";
+    u.searchParams.set("h", current);
+    try {
+      await sendSignInLinkToEmail(auth, email, { url: u.toString(), handleCodeInApp: true });
+      local.set("emailForSignIn", email);
+      toast(`Sign-in link sent to ${email}. Open it on this device.`);
+    } catch {
+      toast("Couldn’t send the link. Check the address and try again.");
+    }
+  },
+  async signOutUser() {
+    // the next person on this device starts fresh rather than inheriting the list
+    local.set("household", null);
+    setUrlCode(null);
+    await signOut(auth);
+  },
+};
+
+// Finish a Google redirect or an email link if we landed here from one.
+async function finishSignIn() {
+  try {
+    await getRedirectResult(auth);
+  } catch (e) {
+    if (e.code === "auth/credential-already-in-use")
+      await signInWithCredential(auth, GoogleAuthProvider.credentialFromError(e)).catch(() => {});
+  }
+  if (!isSignInWithEmailLink(auth, location.href)) return;
+  const email = local.get("emailForSignIn") || prompt("Confirm your email to finish signing in:");
+  if (!email) return;
+  const cred = EmailAuthProvider.credentialWithLink(email, location.href);
+  try {
+    if (auth.currentUser) await linkWithCredential(auth.currentUser, cred);
+    else await signInWithCredential(auth, cred);
+    toast("Signed in. Your lists now follow you to any device.");
+  } catch (e) {
+    if (e.code === "auth/credential-already-in-use" || e.code === "auth/email-already-in-use")
+      await signInWithCredential(auth, cred).catch(() => toast("Couldn’t finish signing in."));
+    else toast("That sign-in link didn’t work. Ask for a new one.");
+  }
+  local.set("emailForSignIn", null);
+  const u = new URL(location.href);
+  ["apiKey", "oobCode", "mode", "lang", "continueUrl"].forEach((k) => u.searchParams.delete(k));
+  history.replaceState(null, "", u.pathname + u.search + location.hash);
+}
+
+export async function initSync() {
+  if (!config.apiKey) {
+    status("Saved on this device only.");
+    return;
+  }
+  try {
+    const app = initializeApp(config);
+    auth = getAuth(app);
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+    if (import.meta.env.VITE_FIREBASE_EMULATOR) {
+      connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+      connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    }
+    await auth.authStateReady();
+    await finishSignIn();
+    initLists(api);
+    onAuthStateChanged(auth, (u) => {
+      if (!u)
+        signInAnonymously(auth).catch(() => status("Couldn’t reach the shared plan. Saving on this device for now."));
+      else if (u.uid !== uid) attach(u).catch(() => status("Couldn’t reach this list. Saving on this device for now."));
+      else renderLists();
+    });
+    if (!auth.currentUser) await signInAnonymously(auth);
+  } catch {
+    status("Couldn’t reach the shared plan. Saving on this device for now.");
+  }
 }

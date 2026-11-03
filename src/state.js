@@ -108,6 +108,8 @@ export function normalise(input) {
   });
   s.weeks = isMap(s.weeks) ? s.weeks : {};
   s.aisles = isMap(s.aisles) ? s.aisles : {};
+  s.name = typeof s.name === "string" && s.name.trim() ? s.name.trim().slice(0, 60) : "Home";
+  s.members = isMap(s.members) ? s.members : {};
   for (const k in s.aisles) if (!AISLE_LABEL[s.aisles[k]]) delete s.aisles[k];
 
   // v1 kept a single week at the top level
@@ -154,11 +156,16 @@ export function normalise(input) {
     Object.assign(nw.checked, w.checked);
     nw.extras.push(...w.extras);
   }
-  return { meals: s.meals, weeks: s.weeks, aisles: s.aisles };
+  return { name: s.name, members: s.members, meals: s.meals, weeks: s.weeks, aisles: s.aisles };
 }
 
-// The household document shape: meals keyed by id.
-export const toDoc = (s) => ({ ...s, meals: Object.fromEntries(s.meals.map((m) => [m.id, m])) });
+// The household document shape: meals keyed by id. Members are never written from state.
+export const toDoc = (s) => ({
+  name: s.name,
+  meals: Object.fromEntries(s.meals.map((m) => [m.id, m])),
+  weeks: s.weeks,
+  aisles: s.aisles,
+});
 
 function loadLocal() {
   try {
@@ -355,6 +362,10 @@ export function untickAll() {
   w.checked = {};
   w.extras.forEach((x) => (x.done = false));
   save(weekPatch(viewWeek, { checked: DEL, extras: w.extras }));
+}
+export function setName(name) {
+  state.name = name.trim().slice(0, 60) || "Home";
+  save({ name: state.name });
 }
 export function setAisle(key, aisle) {
   state.aisles[key] = aisle;

@@ -20,7 +20,10 @@
         <h1>I feel like dinner tonight</h1>
         <div class="weeknav">
           <button class="arrow" id="prevWk" aria-label="Previous week">‹</button>
-          <div class="wl"><strong id="wkLabel">This week</strong><span id="sub"></span></div>
+          <div class="wl">
+            <strong id="wkLabel">This week</strong><span id="sub"></span
+            ><button class="listname" id="listBtn" hidden aria-label="Your lists">Home</button>
+          </div>
           <button class="arrow" id="nextWk" aria-label="Next week">›</button>
         </div>
         <nav role="tablist">
@@ -67,7 +70,7 @@
           <button class="btn ghost" id="aisleMode">Edit aisles</button>
         </div>
       </section>
-      <p class="sync"><span id="sync"></span> <button class="linkbtn" id="shareBtn" hidden>Copy share link</button></p>
+      <p class="sync"><span id="sync"></span></p>
     </div>
 
     <dialog id="pickDlg">
@@ -86,6 +89,14 @@
         <div class="row">
           <div class="r"><button class="btn ghost" data-close>Cancel</button></div>
         </div>
+      </div>
+    </dialog>
+
+    <dialog id="listsDlg">
+      <div class="dlg">
+        <h2>Your lists</h2>
+        <div class="lists" id="listsBody" tabindex="-1" autofocus></div>
+        <div class="r"><button class="btn ghost" data-close>Close</button></div>
       </div>
     </dialog>
 

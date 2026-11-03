@@ -128,8 +128,19 @@ describe("shopping", () => {
 });
 
 describe("toDoc", () => {
-  it("keys meals by id for the document", () => {
-    expect(S.toDoc(S.state).meals).toEqual({ m1: S.mealById("m1"), m2: S.mealById("m2") });
+  it("keys meals by id for the document and leaves members out", () => {
+    const d = S.toDoc(S.state);
+    expect(d.meals).toEqual({ m1: S.mealById("m1"), m2: S.mealById("m2") });
+    expect(d.name).toBe("Home");
+    expect("members" in d).toBe(false);
+  });
+
+  it("setName trims, caps and patches", () => {
+    S.setName("  Lake trip  ");
+    expect(S.state.name).toBe("Lake trip");
+    expect(last()).toEqual({ name: "Lake trip" });
+    S.setName("   ");
+    expect(S.state.name).toBe("Home");
   });
 });
 
