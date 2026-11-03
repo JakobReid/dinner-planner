@@ -1,5 +1,5 @@
-// "Your lists" sheet: rename, invite, copy or leave the list you're on, switch to another, make a
-// new one, and sign in so lists follow you between devices. Only wired up when sync is on.
+// Profile button (account dialog) and "My lists" button (lists dialog) in the footer. Only wired
+// up when sync is on; each dialog is built on open so a sync echo never wipes what you're typing.
 import { $, el, toast } from "../dom.js";
 import { state, setName } from "../state.js";
 import { openDialog, closeDialog } from "../dialogs.js";
@@ -8,19 +8,23 @@ let api = null;
 
 export function initLists(a) {
   api = a;
-  $("listBtn").hidden = false;
-  $("listBtn").onclick = () => {
-    fill();
+  $("footRow").hidden = false;
+  renderProfile();
+  $("listsBtn").onclick = () => {
+    fillLists();
     openDialog("listsDlg");
   };
-  renderLists();
+  $("acctBtn").onclick = () => {
+    fillAccount();
+    openDialog("acctDlg");
+  };
 }
 
-// Keeps the header label current. The sheet itself is only built on open, so a sync echo
-// never wipes what you're typing into it.
-export function renderLists() {
+export function renderProfile() {
   if (!api) return;
-  $("listBtn").textContent = state.name || "Home";
+  const acct = api.account();
+  $("whoName").textContent = acct ? acct.name : "Guest";
+  $("whoSub").textContent = acct ? "Lists follow you to any device" : "Sign in to keep your lists";
 }
 
 const busy = async (fn) => {
@@ -31,14 +35,13 @@ const busy = async (fn) => {
   }
 };
 
-function fill() {
+function fillLists() {
   const box = $("listsBody");
   const members = Object.keys(state.members).length;
   const nameIn = el("input", { class: "lname", value: state.name, maxlength: "60", "aria-label": "List name" });
   nameIn.onchange = () => {
     setName(nameIn.value);
     nameIn.value = state.name;
-    renderLists();
   };
   const others = el("div", { class: "others" });
   api.names().then((names) => {
@@ -61,14 +64,6 @@ function fill() {
         ),
     );
     if (!others.children.length) others.append(el("p", { class: "muted" }, "Just this one so far."));
-  });
-  const acct = api.account();
-  const email = el("input", {
-    type: "email",
-    class: "lname",
-    placeholder: "you@example.com",
-    "aria-label": "Email address",
-    autocomplete: "email",
   });
   box.replaceChildren(
     el("h3", {}, "This list"),
@@ -120,36 +115,55 @@ function fill() {
       },
       "New list",
     ),
-    el("h3", {}, "Account"),
-    acct
-      ? el(
+  );
+}
+
+function fillAccount() {
+  const acct = api.account();
+  const email = el("input", {
+    type: "email",
+    class: "lname",
+    placeholder: "you@example.com",
+    "aria-label": "Email address",
+    autocomplete: "email",
+  });
+  const body = acct
+    ? el(
+        "div",
+        { class: "acct" },
+        el("p", { class: "muted" }, `Signed in as ${acct.email || acct.name}. Your lists follow you to any device.`),
+        el(
+          "button",
+          { class: "btn ghost", onclick: () => busy(() => api.signOutUser().then(() => closeDialog("acctDlg"))) },
+          "Sign out",
+        ),
+      )
+    : el(
+        "div",
+        { class: "acct" },
+        el("p", { class: "muted" }, "Sign in to keep your lists on every device. Nothing here is lost."),
+        el(
+          "button",
+          { class: "btn", onclick: () => busy(() => api.signInGoogle().then(() => closeDialog("acctDlg"))) },
+          "Sign in with Google",
+        ),
+        el(
           "div",
-          { class: "acct" },
-          el("p", { class: "muted" }, `Signed in as ${acct.email}. Your lists follow you to any device.`),
-          el("button", { class: "btn ghost", onclick: () => busy(() => api.signOutUser()) }, "Sign out"),
-        )
-      : el(
-          "div",
-          { class: "acct" },
-          el("p", { class: "muted" }, "Sign in to keep your lists on every device. Nothing here is lost."),
-          el("button", { class: "btn", onclick: () => busy(() => api.signInGoogle()) }, "Sign in with Google"),
+          { class: "r" },
+          email,
           el(
-            "div",
-            { class: "r" },
-            email,
-            el(
-              "button",
-              {
-                class: "btn ghost",
-                onclick: () => {
-                  const v = email.value.trim();
-                  if (!v.includes("@")) return toast("Enter your email first.");
-                  busy(() => api.sendEmailLink(v));
-                },
+            "button",
+            {
+              class: "btn ghost",
+              onclick: () => {
+                const v = email.value.trim();
+                if (!v.includes("@")) return toast("Enter your email first.");
+                busy(() => api.sendEmailLink(v).then(() => closeDialog("acctDlg")));
               },
-              "Email me a link",
-            ),
+            },
+            "Email me a link",
           ),
         ),
-  );
+      );
+  $("acctBody").replaceChildren(body);
 }

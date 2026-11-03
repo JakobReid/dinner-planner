@@ -36,7 +36,7 @@ import {
 import { $, toast } from "./dom.js";
 import { DEL, replaceState, setRemote, state, toDoc } from "./state.js";
 import { render } from "./render.js";
-import { initLists, renderLists } from "./views/lists.js";
+import { initLists, renderProfile } from "./views/lists.js";
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -52,7 +52,11 @@ let current = null; // household code in use on this device
 let unsub = null;
 let user = { households: {}, current: null };
 
-const status = (t) => ($("sync").textContent = t);
+// Footer line: silent when all is well, a short note when saving, offline or local-only.
+const status = (t, state = t ? "warn" : "ok") => {
+  $("sync").textContent = t;
+  $("sync").dataset.state = state;
+};
 const local = {
   get: (k) => {
     try {
@@ -141,7 +145,6 @@ async function open(code) {
   user.current = code;
   saveUser({ households: { [code]: true }, current: code });
   subscribe();
-  renderLists();
 }
 
 function subscribe() {
@@ -155,10 +158,10 @@ function subscribe() {
       const { hasPendingWrites, fromCache } = snap.metadata;
       // our own writes are already in state; the server echo arrives once they land
       if (hasPendingWrites) {
-        status("Saving…");
+        status("Saving…", "busy");
         return;
       }
-      status(fromCache ? "Offline copy. Changes sync when you’re back online." : "Synced.");
+      status(fromCache ? "Offline copy. Changes sync when you’re back online." : "");
       const data = snap.exists() ? snap.data() : {};
       // a document with nothing in it yet (joined by a fresh link) gets this device's meals
       if (!("meals" in data) && !("weeks" in data) && !("aisles" in data)) {
@@ -167,7 +170,6 @@ function subscribe() {
       }
       replaceState(data);
       render();
-      renderLists();
       // older documents kept meals as an array; the rules now want the map
       if (Array.isArray(data.meals)) write(ref, { meals: toDoc(state).meals }).catch(saveFail);
     },
@@ -186,7 +188,8 @@ const api = {
   },
   account() {
     const u = auth && auth.currentUser;
-    return u && !u.isAnonymous ? { email: u.email || u.displayName || "your account" } : null;
+    if (!u || u.isAnonymous) return null;
+    return { email: u.email || "", name: u.displayName || u.email || "Signed in" };
   },
   // Names of your lists, read live so renames by others show up; lists you can't read any more drop out.
   async names() {
@@ -268,7 +271,7 @@ const api = {
     try {
       await linkWithPopup(auth.currentUser, provider);
       toast("Signed in. Your lists now follow you to any device.");
-      renderLists();
+      renderProfile();
     } catch (e) {
       if (e.code === "auth/credential-already-in-use") {
         // this Google account already exists: switch to it, and it joins this device's list
@@ -349,9 +352,8 @@ export async function initSync() {
       if (!u)
         signInAnonymously(auth).catch(() => status("Couldn’t reach the shared plan. Saving on this device for now."));
       else if (u.uid !== uid) attach(u).catch(() => status("Couldn’t reach this list. Saving on this device for now."));
-      else renderLists();
+      renderProfile();
     });
-    if (!auth.currentUser) await signInAnonymously(auth);
   } catch {
     status("Couldn’t reach the shared plan. Saving on this device for now.");
   }

@@ -97,7 +97,11 @@ button {
 .wrap {
   max-width: 640px;
   margin: 0 auto;
-  padding: 0 18px 80px;
+  padding: 0 18px 16px;
+  /* footer sits at the foot of the screen on phones, but no further than this on big screens */
+  display: flex;
+  flex-direction: column;
+  min-height: min(100svh, 1080px);
 }
 
 header {
@@ -141,22 +145,6 @@ h1 {
 .weeknav .wl span {
   font-size: 0.88rem;
   color: var(--muted);
-}
-/* the list you're on; tap for the lists sheet */
-.weeknav .wl button.listname {
-  margin-top: 2px;
-  padding: 2px 8px;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.85rem;
-  text-decoration: underline dashed;
-  text-underline-offset: 3px;
-  max-width: 60vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .weeknav .wl button {
   background: none;
@@ -226,10 +214,7 @@ section {
 
 /* week */
 .day {
-  display: grid;
-  grid-template-columns: 3.4rem 1fr;
-  align-items: start;
-  gap: 10px;
+  display: block;
   width: 100%;
   text-align: left;
   background: none;
@@ -237,13 +222,19 @@ section {
   border-bottom: 1px solid var(--line);
   padding: 14px 2px;
 }
+.day .row {
+  display: grid;
+  grid-template-columns: 4.6rem 1fr;
+  align-items: center;
+  gap: 10px;
+}
 .day .d {
   font-weight: 800;
   font-size: 1.05rem;
   letter-spacing: -0.01em;
 }
 .day .d small {
-  display: block;
+  margin-left: 5px;
   font-weight: 400;
   color: var(--muted);
   font-size: 0.8rem;
@@ -266,10 +257,11 @@ section {
   font-weight: 500;
   font-style: italic;
 }
-/* today: a strip of masking tape over the day and the meal name; text stays on the same columns */
-.day.today .dn,
-.day.today .n {
-  display: inline-block;
+/* today: one strip of masking tape across the day, date and meal name; columns stay put */
+.day.today .row {
+  display: inline-grid;
+  grid-template-columns: 4.6rem auto;
+  max-width: 100%;
   background:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
     var(--tape);
@@ -291,8 +283,12 @@ section {
     1.5px 20%
   );
 }
-.day.today .dn {
-  padding: 0.05em 0.4em;
+.day.today .row {
+  padding: 0.12em 0.6em 0.16em 0.4em;
+  margin: 0 0 0 -0.3em;
+}
+.day.today .d small {
+  color: inherit;
 }
 .actions {
   display: flex;
@@ -636,11 +632,12 @@ section {
   font-size: 1rem;
   width: 100%;
   min-width: 0;
+}
+.lists .r .lname {
   flex: 1;
 }
 .lists input.lname:first-of-type {
-  font-family: var(--hand);
-  font-size: 1.35rem;
+  font-weight: 600;
 }
 .lists .r {
   display: flex;
@@ -659,8 +656,7 @@ section {
   background: var(--surface);
   border-radius: 12px;
   padding: 10px 12px;
-  font-family: var(--hand);
-  font-size: 1.3rem;
+  font-weight: 600;
 }
 .lists .acct {
   display: flex;
@@ -895,10 +891,55 @@ label.f textarea {
   font-size: 0.92rem;
   z-index: 20;
 }
-.sync {
-  font-size: 0.8rem;
+/* who you are and which lists you're in, as buttons rather than footer links */
+.foot {
+  margin-top: auto;
+  padding-top: 36px;
   color: var(--muted);
-  margin-top: 28px;
+}
+.footrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.profile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.profile .who {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+.profile .who strong {
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile .who small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.footrow .btn {
+  flex: none;
+}
+.sync {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+}
+.sync:empty {
+  display: none;
 }
 .linkbtn {
   background: none;

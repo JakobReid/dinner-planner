@@ -1,10 +1,9 @@
 import { DAYS, DAY_FULL, addDays, fmt, parse, thisWeek, todayStr } from "../dates.js";
-import { $, el, outIcon, toast } from "../dom.js";
-import { state, viewWeek, setViewWeek, wk, mealById, fillEmptyNights, clearWeek } from "../state.js";
+import { $, el, outIcon } from "../dom.js";
+import { viewWeek, setViewWeek, wk, mealById, clearWeek } from "../state.js";
 import { onRender, render } from "../render.js";
 import { openPicker } from "./picker.js";
 import { openMeal } from "./editor.js";
-import { showTab } from "./tabs.js";
 
 function weekDiff() {
   return Math.round((parse(viewWeek) - parse(thisWeek())) / (7 * 864e5));
@@ -62,8 +61,12 @@ function renderWeek({ flash } = {}) {
               : openPicker(d),
           "aria-label": label,
         },
-        el("span", { class: "d" }, el("span", { class: "dn" }, d), el("small", {}, parse(date).getDate())),
-        main,
+        el(
+          "span",
+          { class: "row" },
+          el("span", { class: "d" }, el("span", { class: "dn" }, d), el("small", {}, parse(date).getDate())),
+          main,
+        ),
       ),
     );
   });
@@ -74,13 +77,6 @@ export function initWeek() {
   onRender(renderWeek);
   $("prevWk").onclick = () => goWeek(addDays(viewWeek, -7));
   $("nextWk").onclick = () => goWeek(addDays(viewWeek, 7));
-  $("toShop").onclick = () => showTab("shop");
-  $("fill").onclick = () => {
-    if (!state.meals.length) return toast("Add some meals first.");
-    const { empty, filled } = fillEmptyNights();
-    if (!empty.length) return toast("Every night’s sorted already.");
-    render({ flash: filled });
-  };
   $("clearWk").onclick = () => {
     if (!confirm(`Clear the dinners and shopping list for ${fmt(viewWeek)} to ${fmt(addDays(viewWeek, 6))}?`)) return;
     clearWeek(viewWeek);

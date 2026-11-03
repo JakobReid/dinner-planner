@@ -3,7 +3,8 @@
 import { assert, open, pause } from "./lib.mjs";
 import { thisWeek } from "../src/dates.js";
 
-const FS = "http://127.0.0.1:8080/v1/projects/demo-dinner/databases/(default)/documents/households/";
+const DOCS = "http://127.0.0.1:8080/v1/projects/demo-dinner/databases/(default)/documents/";
+const FS = DOCS + "households/";
 const WK = thisWeek();
 const code = () => "e2e" + Math.random().toString(36).slice(2).padEnd(21, "0");
 
@@ -32,7 +33,7 @@ const until = async (fn, what, ms = 8000) => {
   }
   throw new Error("timed out waiting for " + what);
 };
-const synced = (pg) => pg.waitForFunction(() => document.getElementById("sync").textContent.startsWith("Synced"));
+const synced = (pg) => pg.waitForFunction(() => document.getElementById("sync").dataset.state === "ok");
 const plan = async (pg, day) => {
   await pg.locator("#days .day", { hasText: day }).tap();
   await pg.locator("#pickList button[data-meal]").first().tap();
@@ -40,6 +41,19 @@ const plan = async (pg, day) => {
 const noErrors = (errors) => assert.deepEqual(errors, [], "console errors");
 
 export const tests = {
+  "sync: a fresh device with no link gets exactly one list": async (browser, url) => {
+    const { pg, ctx, errors } = await open(browser, url);
+    await synced(pg);
+    const id = await until(() => pg.evaluate(() => new URL(location.href).searchParams.get("h")), "code in the url");
+    const uid = Object.keys((await until(() => getDoc(id), "household"))?.members || {})[0];
+    const user = await until(async () => {
+      const r = await fetch(DOCS + "users/" + uid, { headers: { authorization: "Bearer owner" } });
+      return r.ok ? plain({ mapValue: { fields: (await r.json()).fields } }) : null;
+    }, "user doc");
+    assert.deepEqual(Object.keys(user.households), [id], "one household, not a stray second one");
+    noErrors(errors);
+    await ctx.close();
+  },
   "sync: a new link seeds the household from this device": async (browser, url) => {
     const id = code();
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
@@ -52,7 +66,6 @@ export const tests = {
     assert.deepEqual(d.weeks, {});
     assert.equal(d.name, "Home");
     assert.equal(Object.keys(d.members).length, 1, "the device's user is the only member");
-    assert.equal(await pg.textContent("#listBtn"), "Home");
     await plan(pg, "Mon");
     await until(async () => (await getDoc(id))?.weeks[WK]?.plan?.Mon, "planned night in the document");
     await synced(pg);
@@ -124,27 +137,39 @@ export const tests = {
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
     await synced(pg);
     await until(async () => (await getDoc(id))?.meals, "seed");
-    await pg.click("#listBtn");
+    await pg.click("#acctBtn");
+    assert.equal(await pg.locator("#acctDlg[open]").count(), 1);
+    assert.equal(await pg.locator("#acctBody button", { hasText: "Sign in with Google" }).count(), 1);
+    await pg.locator("#acctDlg [data-close]").click();
+    await pg.click("#listsBtn");
     assert.equal(await pg.locator("#listsDlg[open]").count(), 1);
+    assert.equal(await pg.locator("#listsBody button", { hasText: "Sign in" }).count(), 0, "account kept apart");
     await pg.fill("#listsBody input.lname", "Our place");
     await pg.locator("#listsBody input.lname").first().dispatchEvent("change");
     await until(async () => (await getDoc(id))?.name === "Our place", "rename written");
-    assert.equal(await pg.textContent("#listBtn"), "Our place");
+    await pg.locator("#listsDlg [data-close]").click();
+    await pg.click("#listsBtn");
+    assert.equal(await pg.inputValue("#listsBody input.lname"), "Our place", "rename shows on reopen");
     pg.once("dialog", (d) => d.accept("Lake trip"));
     await pg.locator("#listsBody button", { hasText: "New list" }).click();
-    await pg.waitForFunction(() => document.getElementById("listBtn").textContent === "Lake trip");
-    const trip = new URL(pg.url()).searchParams.get("h");
-    assert.notEqual(trip, id, "a new list has its own code");
+    const trip = await until(async () => {
+      const c = new URL(pg.url()).searchParams.get("h");
+      return c !== id ? c : null;
+    }, "new list opened");
+    await synced(pg);
     assert.equal(await pg.locator("#days .day .m:not(.empty)").count(), 0, "new list starts empty");
     assert.equal(await pg.locator("#mealList .meal").count(), 0);
-    await pg.click("#listBtn");
+    await pg.click("#listsBtn");
     await pg.locator("#listsBody .lrow", { hasText: "Our place" }).click();
-    await pg.waitForFunction(() => document.getElementById("listBtn").textContent === "Our place");
-    assert.equal(await pg.locator("#mealList .meal").count(), 8, "back to the first list with its meals");
-    await pg.click("#listBtn");
+    await until(async () => new URL(pg.url()).searchParams.get("h") === id, "switched back");
+    await until(
+      async () => (await pg.locator("#mealList .meal").count()) === 8,
+      "back to the first list with its meals",
+    );
+    await pg.click("#listsBtn");
     pg.once("dialog", (d) => d.accept());
     await pg.locator("#listsBody button", { hasText: "Leave" }).click();
-    await pg.waitForFunction(() => document.getElementById("listBtn").textContent === "Lake trip");
+    await until(async () => new URL(pg.url()).searchParams.get("h") === trip, "left to the other list");
     await until(async () => (await getDoc(id)) === null, "last member out deletes the list");
     assert.deepEqual(errors, []);
     await ctx.close();

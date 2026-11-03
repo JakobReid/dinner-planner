@@ -44,14 +44,15 @@ export const tests = {
     void weeks;
     await ctx.close();
   },
-  "weeks: fill empty nights and clear": async (browser, url) => {
+  "weeks: plan nights and clear": async (browser, url) => {
     const { pg, ctx } = await open(browser, url);
     await pg.click("#nextWk");
-    await pg.click("#fill");
-    await pause(150);
-    assert.equal(await pg.locator("#days .day .m:not(.empty)").count(), 7, "every night of next week filled");
-    const names = await pg.locator("#days .day .m").allTextContents();
-    assert.equal(new Set(names).size, 7, "no repeats with 8 meals");
+    for (const day of ["Fri", "Sat", "Sun"]) {
+      await pg.locator("#days .day", { hasText: day }).click();
+      await pg.locator("#pickList button[data-meal]").first().click();
+      await pause(100);
+    }
+    assert.equal(await pg.locator("#days .day .m:not(.empty)").count(), 3, "three nights of next week planned");
     pg.once("dialog", (d) => d.accept());
     await pg.click("#clearWk");
     await pause(100);

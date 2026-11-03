@@ -20,10 +20,7 @@
         <h1>I feel like dinner tonight</h1>
         <div class="weeknav">
           <button class="arrow" id="prevWk" aria-label="Previous week">‹</button>
-          <div class="wl">
-            <strong id="wkLabel">This week</strong><span id="sub"></span
-            ><button class="listname" id="listBtn" hidden aria-label="Your lists">Home</button>
-          </div>
+          <div class="wl"><strong id="wkLabel">This week</strong><span id="sub"></span></div>
           <button class="arrow" id="nextWk" aria-label="Next week">›</button>
         </div>
         <nav role="tablist">
@@ -38,8 +35,6 @@
       <section id="week" role="tabpanel" aria-labelledby="t-week">
         <div id="days"></div>
         <div class="actions">
-          <button class="btn big" id="fill">Fill dinners</button>
-          <button class="btn ghost" id="toShop">Shopping list</button>
           <button class="btn danger" id="clearWk">Clear week</button>
         </div>
       </section>
@@ -50,7 +45,7 @@
             class="search"
             id="mealQ"
             type="search"
-            placeholder="Search meals or ingredients (rice, mince…)"
+            placeholder="Search meals or ingredients"
             aria-label="Search meals or ingredients"
             autocomplete="off"
           />
@@ -62,7 +57,7 @@
       <section id="shop" role="tabpanel" aria-labelledby="t-shop" hidden>
         <div id="shopList"></div>
         <div class="add">
-          <input id="extraIn" placeholder="Add something else (milk, bin bags…)" aria-label="Add an extra item" />
+          <input id="extraIn" placeholder="Add something else" aria-label="Add an extra item" />
           <button class="plus" id="extraAdd" aria-label="Add to the list"></button>
         </div>
         <div class="actions">
@@ -70,7 +65,15 @@
           <button class="btn ghost" id="aisleMode">Edit aisles</button>
         </div>
       </section>
-      <p class="sync"><span id="sync"></span></p>
+      <footer class="foot">
+        <div class="footrow" id="footRow" hidden>
+          <button class="profile" id="acctBtn">
+            <span class="who"><strong id="whoName">Guest</strong><small id="whoSub">Tap to sign in</small></span>
+          </button>
+          <button class="btn ghost" id="listsBtn">My lists</button>
+        </div>
+        <p class="sync"><span id="sync"></span></p>
+      </footer>
     </div>
 
     <dialog id="pickDlg">
@@ -80,7 +83,7 @@
           class="search"
           id="pickQ"
           type="search"
-          placeholder="Search meals or ingredients (rice, mince…)"
+          placeholder="Search meals or ingredients"
           aria-label="Search meals or ingredients"
           autocomplete="off"
         />
@@ -96,6 +99,14 @@
       <div class="dlg">
         <h2>Your lists</h2>
         <div class="lists" id="listsBody" tabindex="-1" autofocus></div>
+        <div class="r"><button class="btn ghost" data-close>Close</button></div>
+      </div>
+    </dialog>
+
+    <dialog id="acctDlg">
+      <div class="dlg">
+        <h2>Account</h2>
+        <div class="lists" id="acctBody" tabindex="-1" autofocus></div>
         <div class="r"><button class="btn ghost" data-close>Close</button></div>
       </div>
     </dialog>
