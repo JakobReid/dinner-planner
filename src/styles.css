@@ -105,7 +105,9 @@ header {
   top: env(safe-area-inset-top, 0px);
   z-index: 5;
   background: var(--bg);
-  padding: 18px 0 0;
+  /* span the page gutters too, or tape peeks past the edges as it scrolls under */
+  margin: 0 -18px;
+  padding: 18px 18px 0;
 }
 h1 {
   font-size: clamp(2rem, 7.5vw, 2.8rem);
@@ -502,6 +504,13 @@ section {
 .item.maybe label {
   color: var(--muted);
 }
+/* normal rows are just the name; "Change aisles" swaps the tick box for the aisle picker */
+#shop:not(.sorting) .item .aisle {
+  display: none;
+}
+#shop.sorting .item input {
+  display: none;
+}
 .item .aisle {
   appearance: none;
   -webkit-appearance: none;
@@ -705,6 +714,10 @@ dialog::backdrop {
   top: calc(var(--header-h, 0px) + env(safe-area-inset-top, 0px));
   z-index: 4;
   background: var(--bg);
+  margin-left: -18px;
+  margin-right: -18px;
+  padding-left: 18px;
+  padding-right: 18px;
 }
 .bar .search {
   flex: 1;

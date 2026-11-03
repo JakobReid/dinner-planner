@@ -133,4 +133,9 @@ export function initShop() {
     untickAll();
     renderShop();
   };
+  // aisle pickers stay out of the way until you ask for them
+  $("aisleMode").onclick = () => {
+    const on = $("shop").classList.toggle("sorting");
+    $("aisleMode").textContent = on ? "Done" : "Edit aisles";
+  };
 }

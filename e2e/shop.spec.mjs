@@ -38,8 +38,12 @@ export const tests = {
       1,
     );
     const badge = Number(await pg.textContent("#shopCount"));
+    assert.equal(await pg.locator("#shopList select.aisle:visible").count(), 0, "pickers hidden by default");
+    await pg.click("#aisleMode");
+    assert.equal(await pg.textContent("#aisleMode"), "Done");
     await pg.locator("#shopList .item", { hasText: "tortillas" }).locator("select.aisle").selectOption("pantry");
     await pause(100);
+    await pg.click("#aisleMode");
     assert.equal(
       await pg.locator('#shopList .group:has(h2:text("Pantry")) .item', { hasText: "tortillas" }).count(),
       1,
