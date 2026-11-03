@@ -75,6 +75,37 @@ export const tests = {
     assert.equal(await firstDay(pg).locator(".m.empty").count(), 1, `${name} came off the night`);
     await ctx.close();
   },
+  "info: a planned night opens the meal read-only, Edit unlocks it, Change opens the picker": async (browser, url) => {
+    const { pg, ctx, errors } = await open(browser, url);
+    await firstDay(pg).click();
+    await pg.locator("#pickList button[data-meal]", { hasText: "Chicken gyros" }).click();
+    await pause(100);
+    assert.equal(await firstDay(pg).locator(".m").textContent(), "Chicken gyros", "name only on the week list");
+    await firstDay(pg).click();
+    assert.equal(await pg.locator("#mealDlg[open]").count(), 1);
+    assert.match(await pg.textContent("#mealTitle"), /^Friday /);
+    assert.equal(await pg.getAttribute("#mName", "readonly"), "", "read-only to start");
+    assert.equal((await pg.inputValue("#mIng")).split("\n").length, 7);
+    assert.equal(await pg.locator("#mViewActs").isVisible(), true);
+    assert.equal(await pg.locator("#mEditActs").isVisible(), false);
+    await pg.click("#mEdit");
+    assert.equal(await pg.textContent("#mealTitle"), "Edit meal");
+    assert.equal(await pg.getAttribute("#mName", "readonly"), null, "editable after the toggle");
+    await pg.fill("#mName", "Chicken gyros wraps");
+    await pg.click("#mealForm button[type=submit]");
+    await pause(150);
+    assert.equal(await firstDay(pg).locator(".m").textContent(), "Chicken gyros wraps");
+    await firstDay(pg).click();
+    await pg.click("#mChange");
+    await pause(100);
+    assert.equal(await pg.locator("#mealDlg[open]").count(), 0);
+    assert.equal(await pg.locator("#pickDlg[open]").count(), 1, "picker open for the same night");
+    await pg.locator("#pickList button[data-meal]", { hasText: "Gyozas" }).click();
+    await pause(100);
+    assert.equal(await firstDay(pg).locator(".m").textContent(), "Gyozas");
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  },
   "picker: Enter picks the first match": async (browser, url) => {
     const { pg, ctx } = await open(browser, url);
     await pg.locator("#days .day").nth(2).click();

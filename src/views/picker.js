@@ -1,7 +1,7 @@
 // "Pick a dinner" dialog for one night: search meals, pick one, or add/edit a meal without leaving.
 import { DAYS, DAY_FULL, addDays, fmt } from "../dates.js";
 import { $, el, outIcon, clearIcon, plusIcon, editIcon } from "../dom.js";
-import { state, viewWeek, wk, setNight } from "../state.js";
+import { state, viewWeek, wk, setNight, matchMeals } from "../state.js";
 import { render } from "../render.js";
 import { openDialog, closeDialog } from "../dialogs.js";
 import { openMeal } from "./editor.js";
@@ -38,15 +38,7 @@ function renderPick() {
   );
   const raw = $("pickQ").value.trim();
   const q = raw.toLowerCase();
-  const list = [...state.meals]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((m) => {
-      if (!q) return { m };
-      if (m.name.toLowerCase().includes(q)) return { m };
-      const hit = m.ingredients.filter((x) => x.name.toLowerCase().includes(q)).map((x) => x.name.toLowerCase());
-      return hit.length ? { m, hit } : null;
-    })
-    .filter(Boolean);
+  const list = matchMeals(raw);
   list.forEach(({ m, hit }) => {
     const notes = [];
     if (hit) notes.push("Has " + hit.join(", "));

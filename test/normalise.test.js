@@ -25,6 +25,8 @@ describe("normalise", () => {
       { name: "hummus", optional: true },
     ]);
     expect(s.meals[0].notes).toBe("");
+    expect(normalise({ meals: [meal({ notes: "null" })] }).meals[0].notes).toBe("");
+    expect(normalise({ meals: [meal({ notes: null })] }).meals[0].notes).toBe("");
   });
 
   it("accepts meals stored as a map keyed by id", () => {

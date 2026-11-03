@@ -3,6 +3,7 @@ import { $, el, outIcon, toast } from "../dom.js";
 import { state, viewWeek, setViewWeek, wk, mealById, fillEmptyNights, clearWeek } from "../state.js";
 import { onRender, render } from "../render.js";
 import { openPicker } from "./picker.js";
+import { openMeal } from "./editor.js";
 import { showTab } from "./tabs.js";
 
 function weekDiff() {
@@ -28,7 +29,7 @@ function renderNav() {
   const sub = $("sub");
   sub.replaceChildren(`${fmt(viewWeek)} to ${fmt(addDays(viewWeek, 6))}`);
   if (diff !== 0) sub.append(" ", el("button", { onclick: () => goWeek(thisWeek()) }, "Back to this week"));
-  $("clearWk").textContent = diff === 0 ? "Clear this week" : "Clear this week’s plan";
+  $("clearWk").textContent = diff === 0 ? "Clear week" : "Clear this week";
 }
 
 function renderWeek({ flash } = {}) {
@@ -42,21 +43,8 @@ function renderWeek({ flash } = {}) {
     const m = v && v !== "out" ? mealById(v) : null;
     let main;
     if (v === "out") main = el("span", { class: "m out" }, outIcon(), "Eating out / leftovers");
-    else if (m)
-      main = el(
-        "span",
-        { class: "m" },
-        el("span", { class: "n" }, m.name),
-        el(
-          "span",
-          { class: "i" },
-          m.ingredients
-            .filter((x) => !x.optional)
-            .map((x) => x.name)
-            .join(", "),
-        ),
-      );
-    else main = el("span", { class: "m empty" }, date < today ? "Nothing recorded" : "Pick a dinner");
+    else if (m) main = el("span", { class: "m" }, el("span", { class: "n" }, m.name));
+    else main = el("span", { class: "m empty" }, date < today ? "" : "Pick a dinner");
     const cls =
       "day" +
       (date === today ? " today" : "") +
@@ -66,7 +54,14 @@ function renderWeek({ flash } = {}) {
     box.append(
       el(
         "button",
-        { class: cls, onclick: () => openPicker(d), "aria-label": label },
+        {
+          class: cls,
+          onclick: () =>
+            m
+              ? openMeal(m.id, { view: { title: `${DAY_FULL[i]} ${fmt(date)}`, onChange: () => openPicker(d) } })
+              : openPicker(d),
+          "aria-label": label,
+        },
         el("span", { class: "d" }, el("span", { class: "dn" }, d), el("small", {}, parse(date).getDate())),
         main,
       ),

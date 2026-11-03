@@ -132,3 +132,18 @@ describe("toDoc", () => {
     expect(S.toDoc(S.state).meals).toEqual({ m1: S.mealById("m1"), m2: S.mealById("m2") });
   });
 });
+
+describe("matchMeals", () => {
+  it("lists everything sorted by name with no query", () => {
+    expect(S.matchMeals("").map((r) => r.m.name)).toEqual(["Curry", "Tacos"]);
+  });
+
+  it("matches names, then ingredients with the hits listed", () => {
+    expect(S.matchMeals("  TAC ").map((r) => r.m.name)).toEqual(["Tacos"]);
+    const [r] = S.matchMeals("mince");
+    expect(r.m.name).toBe("Tacos");
+    expect(r.hit).toEqual(["beef mince"]);
+    expect(S.matchMeals("rice")[0].hit).toEqual(["rice"]);
+    expect(S.matchMeals("zzz")).toEqual([]);
+  });
+});

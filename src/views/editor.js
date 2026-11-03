@@ -6,18 +6,36 @@ import { openDialog, closeDialog } from "../dialogs.js";
 
 let editing = null;
 let onDone = null;
+let viewing = null; // { title, onChange } while showing a planned dinner read-only
 
-export function openMeal(id, { prefill = "", onDone: cb = null } = {}) {
+const FIELDS = ["mName", "mIng", "mNotes"];
+const lines = (id) => $(id).value.split("\n").length;
+
+// Read-only shows the text as written, sized to fit; editing gets the usual boxes.
+function setMode(view) {
+  $("mealForm").classList.toggle("view", view);
+  FIELDS.forEach((f) => ($(f).readOnly = view));
+  $("mIng").rows = view ? Math.max(1, lines("mIng")) : 7;
+  $("mNotes").rows = view ? Math.max(1, lines("mNotes")) : 3;
+  $("mViewActs").hidden = !view;
+  $("mEditActs").hidden = view;
+}
+
+// `view` shows an existing meal read-only under its own title, with Change dinner and an Edit toggle.
+export function openMeal(id, { prefill = "", onDone: cb = null, view = null } = {}) {
   editing = id;
   onDone = cb;
+  viewing = view;
   const m = id ? mealById(id) : null;
-  $("mealTitle").textContent = m ? "Edit meal" : "Add a meal";
+  $("mealTitle").textContent = view ? view.title : m ? "Edit meal" : "Add a meal";
   $("mName").value = m ? m.name : prefill;
   $("mIng").value = m ? m.ingredients.map((x) => (x.optional ? "maybe " : "") + x.name).join("\n") : "";
-  $("mNotes").value = m ? m.notes : "";
+  $("mNotes").value = (m && m.notes) || "";
   $("mDel").hidden = !m;
+  setMode(!!view);
   openDialog("mealDlg");
-  $("mName").focus();
+  if (view) $("mName").blur();
+  else $("mName").focus();
 }
 
 // One ingredient per line; a leading "maybe" marks it optional. Stored lowercase, optional last.
@@ -47,6 +65,7 @@ function finish(id) {
 export function initEditor() {
   $("mealForm").addEventListener("submit", (e) => {
     e.preventDefault();
+    if (viewing) return;
     const name = $("mName").value.trim();
     if (!name) return;
     const id = upsertMeal(editing, {
@@ -56,6 +75,17 @@ export function initEditor() {
     });
     finish(id);
   });
+  $("mEdit").onclick = () => {
+    viewing = null;
+    $("mealTitle").textContent = "Edit meal";
+    setMode(false);
+    $("mName").focus();
+  };
+  $("mChange").onclick = () => {
+    const v = viewing;
+    closeDialog("mealDlg");
+    if (v && v.onChange) v.onChange();
+  };
   $("mDel").onclick = () => {
     const m = mealById(editing);
     if (!m || !confirm(`Delete ${m.name}? It also comes off any planned nights.`)) return;

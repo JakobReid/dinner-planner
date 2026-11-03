@@ -210,7 +210,7 @@ section {
 .day {
   display: grid;
   grid-template-columns: 3.4rem 1fr;
-  align-items: center;
+  align-items: start;
   gap: 10px;
   width: 100%;
   text-align: left;
@@ -235,6 +235,7 @@ section {
   font-size: 1.65rem;
   font-weight: 700;
   line-height: 1;
+  margin-top: 1px;
 }
 .day .m.empty {
   color: var(--muted);
@@ -246,14 +247,6 @@ section {
   color: var(--muted);
   font-weight: 500;
   font-style: italic;
-}
-.day .i {
-  display: block;
-  font-size: 1.1rem;
-  line-height: 1.15;
-  color: var(--muted);
-  font-weight: 500;
-  margin-top: 3px;
 }
 /* today: a strip of masking tape over the day and the meal name; text stays on the same columns */
 .day.today .dn,
@@ -314,42 +307,61 @@ section {
 
 /* meals */
 .meal {
-  display: block;
+  display: flex; /* a plain button centres its content and eats the label's negative margin */
+  flex-direction: column;
+  align-items: flex-start;
   position: relative;
   width: 100%;
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 16px 16px 14px;
-  margin: 8px 0 12px;
+  border-radius: 2px; /* paper, not a pill */
+  padding: 10px 16px 14px;
+  margin: 22px 0 14px;
+  overflow: visible;
 }
-/* a bit of tape holding each card up */
-.meal::before {
-  content: "";
-  position: absolute;
-  top: -8px;
-  left: 20px;
-  width: 58px;
-  height: 17px;
+.meal .ings {
+  align-self: stretch;
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+.meal .ings .opt {
+  color: var(--muted);
+}
+/* the name is written on a strip of tape stuck over the card's top left corner */
+.meal h3 {
+  display: inline-block;
+  position: relative;
+  max-width: 100%;
+  margin: -24px 0 4px -8px;
+  padding: 0.12em 0.55em 0.18em;
+  font-family: var(--hand);
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--tape-ink);
   background:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
     var(--tape);
-  opacity: 0.92;
   mix-blend-mode: var(--tape-blend);
-  transform: rotate(-4deg);
-  clip-path: polygon(0 0, 100% 2px, calc(100% - 2px) 50%, 100% 100%, 0 calc(100% - 2px), 2px 50%);
+  transform: rotate(-1.5deg);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    calc(100% - 2px) 22%,
+    100% 48%,
+    calc(100% - 1.5px) 74%,
+    100% 100%,
+    0 100%,
+    2px 70%,
+    0 46%,
+    1.5px 20%
+  );
 }
-.meal:nth-child(even)::before {
-  left: auto;
-  right: 22px;
-  transform: rotate(3deg);
-}
-.meal h3 {
-  margin: 0 0 6px;
-  font-family: var(--hand);
-  font-size: 1.6rem;
-  line-height: 1;
+.meal:nth-child(even) h3 {
+  transform: rotate(1deg);
+  margin-left: -4px;
 }
 .chips {
   display: flex;
@@ -378,9 +390,10 @@ section {
 
 /* shopping */
 .group h2 {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--muted);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.01em;
   margin: 0 0 4px;
 }
 .group + .group {
@@ -447,17 +460,11 @@ section {
   font-weight: 500;
   line-height: 1.05;
 }
-.item .from {
-  display: block;
-  font-size: 1.05rem;
-  color: var(--muted);
-  margin-top: 2px;
-}
 .item .qty {
   font-weight: 700;
   color: var(--hot);
-  margin-left: 4px;
-  font-size: 0.9rem;
+  margin-left: 6px;
+  font-size: 1.3rem;
 }
 .item.done label {
   color: var(--muted);
@@ -575,8 +582,10 @@ section {
 }
 
 /* dialogs */
+
 #mName,
-#mIng {
+#mIng,
+#mNotes {
   font-family: var(--hand);
   font-size: 1.35rem;
 }
@@ -683,6 +692,27 @@ dialog::backdrop {
   padding: 10px 12px;
   font-size: 1rem;
   width: 100%;
+  min-width: 0;
+}
+/* search plus add on the Meals tab: app chrome, so app type */
+.bar {
+  display: flex;
+  gap: 8px;
+  /* carry the section's top gap so it's still there once stuck under the tabs */
+  margin: -18px 0 8px;
+  padding: 18px 0 10px;
+  position: sticky;
+  top: calc(var(--header-h, 0px) + env(safe-area-inset-top, 0px));
+  z-index: 4;
+  background: var(--bg);
+}
+.bar .search {
+  flex: 1;
+  background: var(--surface);
+}
+.bar .btn {
+  flex: none;
+  white-space: nowrap;
 }
 .nores {
   color: var(--muted);
@@ -737,6 +767,18 @@ label.f textarea {
 label.f textarea {
   resize: vertical;
   min-height: 7.5em;
+}
+/* the same form, read-only, is how a planned dinner is shown */
+#mealForm.view label.f span {
+  display: none;
+}
+#mealForm.view label.f input,
+#mealForm.view label.f textarea {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  resize: none;
+  min-height: 0;
 }
 .row {
   display: flex;

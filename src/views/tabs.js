@@ -19,6 +19,11 @@ const fromHash = () => {
 
 export function initTabs() {
   document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+  // the header is sticky; anything that sticks beneath it needs to know how tall it is
+  const header = document.querySelector("header");
+  const measure = () => document.documentElement.style.setProperty("--header-h", header.offsetHeight + "px");
+  new ResizeObserver(measure).observe(header);
+  measure();
   window.addEventListener("hashchange", fromHash);
   fromHash();
 }

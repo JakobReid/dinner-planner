@@ -14,7 +14,7 @@ export const tests = {
     await pause(100);
     assert.equal(await pg.evaluate(() => document.body.style.top), top, "page held in place");
     await pg.locator("#pickList button.edit").first().click();
-    await pg.locator("#mealDlg [data-close]").click();
+    await pg.locator("#mealDlg [data-close]:visible").click();
     assert.equal(await pg.evaluate(() => document.body.style.position), "fixed", "still locked under the picker");
     await pg.locator("#pickDlg [data-close]").click();
     await pause(100);

@@ -13,7 +13,7 @@ const server = serve();
 const browser = await launch();
 let failed = 0;
 for (const spec of emulator ? [sync] : [picker, shop, weeks, dialogs, mobile]) {
-  for (const [name, fn] of Object.entries(spec.tests)) {
+  for (const [name, fn] of Object.entries({ ...spec.tests, ...spec.mealsTests })) {
     try {
       await fn(browser, server.url);
       console.log("  ok   " + name);

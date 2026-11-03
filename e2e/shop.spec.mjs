@@ -1,4 +1,4 @@
-import { open, assert, pause } from "./lib.mjs";
+import { open, assert, pause, box } from "./lib.mjs";
 
 export const tests = {
   "shop: grouped by aisle with overrides that persist": async (browser, url) => {
@@ -72,6 +72,39 @@ export const tests = {
       return g[1].getBoundingClientRect().top - g[0].getBoundingClientRect().bottom;
     });
     assert.ok(gap >= 20, `gap between groups is ${gap}px`);
+    await ctx.close();
+  },
+};
+
+export const mealsTests = {
+  "meals: search filters by name or ingredient": async (browser, url) => {
+    const { pg, ctx, errors } = await open(browser, url);
+    await pg.click("#t-meals");
+    assert.equal(await pg.locator("#mealList .meal").count(), 8);
+    await pg.fill("#mealQ", "mince");
+    const names = await pg.locator("#mealList .meal h3").allTextContents();
+    assert.deepEqual(names, ["Beef mince and sweet potato bowl", "Beef mince tacos", "Gyozas", "Spaghetti bolognese"]);
+    assert.match(
+      await pg.locator("#mealList .meal", { hasText: "Gyozas" }).locator(".uses").textContent(),
+      /Has pork mince/,
+    );
+    await pg.fill("#mealQ", "zzz");
+    assert.equal(await pg.locator("#mealList .meal").count(), 0);
+    assert.match(await pg.textContent("#mealList .nores"), /No meals match/);
+    await pg.fill("#mealQ", "");
+    await pg.evaluate(() => scrollTo(0, 600));
+    await pause(50);
+    const header = await box(pg.locator("header"));
+    const bar = await box(pg.locator(".bar"));
+    assert.ok(Math.abs(bar.top - header.bottom) <= 1, `search stays under the header (${bar.top} vs ${header.bottom})`);
+    await pg.fill("#mealQ", "zzz");
+    await pg.click("#addMeal");
+    assert.equal(await pg.inputValue("#mName"), "zzz", "search text becomes the new meal's name");
+    await pg.click("#mealForm button[type=submit]");
+    await pause(150);
+    assert.equal(await pg.inputValue("#mealQ"), "", "search cleared so the new meal is visible");
+    assert.equal(await pg.locator("#mealList .meal", { hasText: "zzz" }).count(), 1);
+    assert.deepEqual(errors, []);
     await ctx.close();
   },
 };

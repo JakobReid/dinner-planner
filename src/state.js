@@ -104,7 +104,7 @@ export function normalise(input) {
         .map((i) => (typeof i === "string" ? ing(keyOf(i)) : ing(keyOf(String(i.name || "")), i.optional)))
         .filter((i) => i.name),
     );
-    m.notes = m.notes || "";
+    m.notes = m.notes && m.notes !== "null" ? String(m.notes) : ""; // an old editor once saved null as text
   });
   s.weeks = isMap(s.weeks) ? s.weeks : {};
   s.aisles = isMap(s.aisles) ? s.aisles : {};
@@ -212,6 +212,20 @@ function weekPatch(key, change) {
 
 /* ---------- lookups ---------- */
 export const mealById = (id) => state.meals.find((m) => m.id === id);
+
+// Meals sorted by name, filtered by a search: name matches, or `hit` lists the matching ingredients.
+export function matchMeals(raw) {
+  const q = (raw || "").trim().toLowerCase();
+  return [...state.meals]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((m) => {
+      if (!q) return { m };
+      if (m.name.toLowerCase().includes(q)) return { m };
+      const hit = m.ingredients.filter((x) => x.name.toLowerCase().includes(q)).map((x) => x.name.toLowerCase());
+      return hit.length ? { m, hit } : null;
+    })
+    .filter(Boolean);
+}
 export const aisleOf = (key) => (AISLE_LABEL[state.aisles[key]] ? state.aisles[key] : guessAisle(key));
 
 // The week being viewed (or `key`). `create` materialises it in state so edits stick.

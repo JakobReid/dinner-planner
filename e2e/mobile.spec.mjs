@@ -12,7 +12,7 @@ async function audit(pg) {
         return b.width > 0 && (b.right > vw + 1 || b.left < -1) && !e.closest("dialog");
       })
       .map((e) => e.tagName + "#" + e.id + "." + e.className);
-    const clipped = [...document.querySelectorAll("h1,h2,h3,button,label,.m,.d,.chip,.from")]
+    const clipped = [...document.querySelectorAll("h1,h2,h3,button,label,.m,.d,.chip,.ings")]
       .filter((e) => {
         const cs = getComputedStyle(e);
         return e.scrollWidth > e.clientWidth + 1 && cs.overflow !== "visible" && cs.textOverflow !== "ellipsis";
@@ -74,6 +74,10 @@ for (const w of [320, 360, 390]) {
     assert.ok(chip[0] >= chip[1], `${w} aisle chip truncates`);
     await pg.click("#t-week");
     await pg.locator("#days .day").nth(1).click();
+    await pause(100);
+    clean(await audit(pg), `${w} dinner info`);
+    await pg.locator("#mealDlg [data-close]:visible").click();
+    await pg.locator("#days .day").nth(4).click();
     await pause(100);
     clean(await audit(pg), `${w} picker`);
     await pg.locator("#pickList button.edit").first().click();

@@ -53,7 +53,6 @@ export function renderShop() {
   const row = (it) => {
     const id = "c-" + it.key.replace(/\W+/g, "-");
     const done = !!w.checked[it.key];
-    const uniq = [...new Set(it.meals)];
     return el(
       "div",
       { class: "item" + (done ? " done" : "") + (it.optional ? " maybe" : "") },
@@ -72,7 +71,6 @@ export function renderShop() {
         it.optional ? el("span", { class: "tag" }, "maybe ") : null,
         el("span", { class: "t" }, it.name),
         it.meals.length > 1 ? el("span", { class: "qty" }, "×" + it.meals.length) : null,
-        el("span", { class: "from" }, uniq.join(", ")),
       ),
       aislePicker(it.key, it.name),
     );

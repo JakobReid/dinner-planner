@@ -35,14 +35,24 @@
       <section id="week" role="tabpanel" aria-labelledby="t-week">
         <div id="days"></div>
         <div class="actions">
-          <button class="btn big" id="fill">Fill empty nights</button>
-          <button class="btn ghost" id="toShop">See shopping list</button>
-          <button class="btn danger" id="clearWk">Clear this week</button>
+          <button class="btn big" id="fill">Fill dinners</button>
+          <button class="btn ghost" id="toShop">Shopping list</button>
+          <button class="btn danger" id="clearWk">Clear week</button>
         </div>
       </section>
 
       <section id="meals" role="tabpanel" aria-labelledby="t-meals" hidden>
-        <div class="actions" style="margin: 0 0 14px"><button class="btn" id="addMeal">Add a meal</button></div>
+        <div class="bar">
+          <input
+            class="search"
+            id="mealQ"
+            type="search"
+            placeholder="Search meals or ingredients (rice, mince…)"
+            aria-label="Search meals or ingredients"
+            autocomplete="off"
+          />
+          <button class="btn" id="addMeal">Add a meal</button>
+        </div>
         <div id="mealList"></div>
       </section>
 
@@ -88,11 +98,18 @@
           >Notes<span>Method, tips, whatever helps.</span
           ><textarea id="mNotes" rows="3" style="min-height: 4.5em"></textarea>
         </label>
-        <div class="row">
+        <div class="row" id="mEditActs">
           <button type="button" class="btn danger" id="mDel">Delete meal</button>
           <div class="r">
             <button type="button" class="btn ghost" data-close>Cancel</button
             ><button type="submit" class="btn">Save meal</button>
+          </div>
+        </div>
+        <div class="row" id="mViewActs" hidden>
+          <button type="button" class="btn" id="mChange">Change dinner</button>
+          <div class="r">
+            <button type="button" class="btn ghost" id="mEdit">Edit meal</button
+            ><button type="button" class="btn ghost" data-close>Close</button>
           </div>
         </div>
       </form>
