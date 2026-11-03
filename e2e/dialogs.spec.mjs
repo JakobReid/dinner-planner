@@ -5,19 +5,21 @@ export const tests = {
     const { pg, ctx } = await open(browser, url, { viewport: { width: 420, height: 600 } });
     await pg.evaluate(() => scrollTo(0, 250));
     await pause(50);
-    await pg.locator("#days .day").last().click();
+    await pg.locator("#days .day").last().click(); // Playwright may scroll further to reach it
     assert.equal(await pg.evaluate(() => document.body.style.position), "fixed");
+    const top = await pg.evaluate(() => document.body.style.top);
+    assert.match(top, /^-\d+px$/, "locked at the scroll position");
     await pg.mouse.move(200, 300);
     await pg.mouse.wheel(0, 500);
     await pause(100);
-    assert.equal(await pg.evaluate(() => document.body.style.top), "-250px", "page held in place");
+    assert.equal(await pg.evaluate(() => document.body.style.top), top, "page held in place");
     await pg.locator("#pickList button.edit").first().click();
     await pg.locator("#mealDlg [data-close]").click();
     assert.equal(await pg.evaluate(() => document.body.style.position), "fixed", "still locked under the picker");
     await pg.locator("#pickDlg [data-close]").click();
     await pause(100);
     assert.equal(await pg.evaluate(() => document.body.style.position), "");
-    assert.equal(await pg.evaluate(() => scrollY), 250, "scroll restored");
+    assert.equal(await pg.evaluate(() => scrollY), -parseInt(top), "scroll restored");
     await ctx.close();
   },
   "dialogs: editor shrinks to the visible viewport when the keyboard is up": async (browser, url) => {

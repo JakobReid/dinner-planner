@@ -248,8 +248,16 @@ section {
   font-weight: 400;
   margin-top: 2px;
 }
-.day.today .d {
-  color: var(--hot);
+/* today: a marker-pen highlight on the day and the meal name, text stays on the same columns */
+.day.today .dn,
+.day.today .n {
+  background: var(--butter);
+  color: var(--butter-ink);
+  padding: 0.05em 0.3em;
+  margin: 0 -0.3em;
+  border-radius: 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 .actions {
   display: flex;

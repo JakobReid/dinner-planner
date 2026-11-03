@@ -46,7 +46,7 @@ function renderWeek({ flash } = {}) {
       main = el(
         "span",
         { class: "m" },
-        m.name,
+        el("span", { class: "n" }, m.name),
         el(
           "span",
           { class: "i" },
@@ -67,7 +67,7 @@ function renderWeek({ flash } = {}) {
       el(
         "button",
         { class: cls, onclick: () => openPicker(d), "aria-label": label },
-        el("span", { class: "d" }, d, el("small", {}, parse(date).getDate())),
+        el("span", { class: "d" }, el("span", { class: "dn" }, d), el("small", {}, parse(date).getDate())),
         main,
       ),
     );
