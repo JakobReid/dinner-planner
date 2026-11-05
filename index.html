@@ -7,6 +7,7 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <title>I feel like dinner tonight</title>
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#eef3ec" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
@@ -224,8 +225,7 @@
           ><textarea id="mIng" rows="7"></textarea>
         </label>
         <label class="f"
-          >Notes<span>Method, tips, whatever helps.</span
-          ><textarea id="mNotes" rows="3" style="min-height: 4.5em"></textarea>
+          >Notes<span>Method, tips, whatever helps.</span><textarea id="mNotes" rows="3"></textarea>
         </label>
         <div class="row" id="mEditActs">
           <button type="button" class="btn danger" id="mDel">Delete meal</button>
@@ -237,7 +237,7 @@
         <div class="row" id="mViewActs" hidden>
           <button type="button" class="btn" id="mChange">Change dinner</button>
           <div class="r">
-            <button type="button" class="btn ghost" id="mEdit">Edit meal</button
+            <button type="button" class="btn quiet" id="mEdit">Edit meal</button
             ><button type="button" class="btn ghost" data-close>Close</button>
           </div>
         </div>

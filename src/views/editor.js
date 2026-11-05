@@ -1,5 +1,5 @@
 // Add / edit meal dialog. `onDone(id)` fires after a save (new or existing id) or a delete (null).
-import { $ } from "../dom.js";
+import { $, editIcon } from "../dom.js";
 import { mealById, ing, maybeLast, upsertMeal, deleteMeal } from "../state.js";
 import { render } from "../render.js";
 import { openDialog, closeDialog } from "../dialogs.js";
@@ -19,6 +19,8 @@ function setMode(view) {
   $("mNotes").rows = view ? Math.max(1, lines("mNotes")) : 3;
   $("mViewActs").hidden = !view;
   $("mEditActs").hidden = view;
+  // read-only skips sections with nothing in them
+  ["mIng", "mNotes"].forEach((f) => ($(f).closest("label").hidden = view && !$(f).value.trim()));
 }
 
 // `view` shows an existing meal read-only under its own title, with Change dinner and an Edit toggle.
@@ -75,6 +77,7 @@ export function initEditor() {
     });
     finish(id);
   });
+  $("mEdit").replaceChildren(editIcon(), "Edit meal");
   $("mEdit").onclick = () => {
     viewing = null;
     $("mealTitle").textContent = "Edit meal";

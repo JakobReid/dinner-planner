@@ -28,7 +28,7 @@ export function renderProfile() {
   $("whoName").textContent = acct ? acct.name : "Guest";
   // Google gives a photo; email sign-ins and guests get a blank disc
   $("whoPic").style.backgroundImage = acct && acct.photo ? `url("${acct.photo}")` : "";
-  $("whoSub").textContent = acct ? "Lists follow you to any device" : "Sign in to sync and share";
+  $("whoSub").textContent = acct ? "Signed in" : "Sign in to sync and share";
 }
 
 // Open the account dialog with a reason on top, e.g. a guest landing on an invite link.

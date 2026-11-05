@@ -12,7 +12,9 @@
   --tape-ink: #111a12;
   --hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
   --tape-blend: multiply;
-  color-scheme: light;
+  /* "light dark" on the root tells Android Chrome we handle dark ourselves, so its auto-dark
+     leaves the page alone (it was inverting the tape to black); the real scheme is set on body */
+  color-scheme: light dark;
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -32,6 +34,9 @@
   --tape-blend: normal;
   color-scheme: dark;
 }
+:root[data-theme="dark"] body {
+  color-scheme: dark;
+}
 html {
   scroll-padding-top: env(safe-area-inset-top, 0px);
 }
@@ -42,6 +47,7 @@ html {
 }
 body {
   margin: 0;
+  color-scheme: light;
   background: var(--bg);
   color: var(--ink);
   font-family:
@@ -940,6 +946,9 @@ label.f textarea {
   resize: vertical;
   min-height: 7.5em;
 }
+#mNotes {
+  min-height: 4.5em;
+}
 /* the same form, read-only, is how a planned dinner is shown */
 #mealForm.view label.f span {
   display: none;
@@ -963,6 +972,16 @@ label.f textarea {
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+/* a planned dinner: one full-width action, then edit and close at either end */
+#mViewActs {
+  flex-direction: column;
+  align-items: stretch;
+}
+#mViewActs .r {
+  margin-left: 0;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .toast {
@@ -1023,6 +1042,9 @@ label.f textarea {
 .profile .who small {
   color: var(--muted);
   font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .footrow .btn {
   flex: none;
@@ -1221,6 +1243,9 @@ label.f textarea {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
 }
 .spin .r.ends {
   justify-content: space-between;
