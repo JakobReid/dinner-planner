@@ -25,9 +25,10 @@ Checks, or all of them with `npm run check`:
 ## How sync works
 
 One Firestore document per household at `households/{code}`, with a `members` map of the people in it,
-and a `users/{uid}` document naming the households you're in and the one you had open last. Everyone
-starts signed in anonymously; "Sign in with Google" or an email link upgrades that same account so
-nothing is lost, and from then on your lists follow you between devices.
+and a `users/{uid}` document naming the households you're in and the one you had open last. Guests
+keep everything on their device and nothing is written; "Sign in with Google" or an email link turns
+on sync and sharing, a first sign-in seeds your Home list from the device, and from then on your lists
+follow you between devices. Anonymous auth tokens are refused by the rules.
 
 The 24-character code in the invite link is the only key. Opening a link adds you to that household's
 members; nobody can list households or guess codes. Everyone in a list is equal: anyone can invite,

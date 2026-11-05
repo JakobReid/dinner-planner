@@ -1,9 +1,10 @@
-// Sync against the Firebase emulators: new households, the legacy meals-array migration,
-// two devices on one link, and writes queued while offline.
+// Sync against the Firebase emulators: guests stay local, first sign-in seeds a list, invite links,
+// the legacy meals-array migration, two devices on one link, and writes queued while offline.
 import { assert, open, pause } from "./lib.mjs";
 import { thisWeek } from "../src/dates.js";
 
 const DOCS = "http://127.0.0.1:8080/v1/projects/demo-dinner/databases/(default)/documents/";
+const AUTH = "http://127.0.0.1:9099/emulator/v1/projects/demo-dinner/";
 const FS = DOCS + "households/";
 const WK = thisWeek();
 const code = () => "e2e" + Math.random().toString(36).slice(2).padEnd(21, "0");
@@ -39,13 +40,63 @@ const plan = async (pg, day) => {
   await pg.locator("#pickList button[data-meal]").first().tap();
 };
 const noErrors = (errors) => assert.deepEqual(errors, [], "console errors");
+const hParam = (pg) => new URL(pg.url()).searchParams.get("h");
+const who = (pg) => pg.locator("#whoName").textContent();
+
+// Sign in with an email link: ask the app for one, read the code off the auth emulator, open it.
+const signIn = async (pg, email = code() + "@e2e.test") => {
+  if (!(await pg.locator("#acctDlg[open]").count())) await pg.click("#acctBtn");
+  await pg.fill("#acctBody input[type=email]", email);
+  await pg.locator("#acctBody button", { hasText: "Email me a link" }).click();
+  const { oobCode, oobLink } = await until(async () => {
+    const r = await fetch(AUTH + "oobCodes", { headers: { authorization: "Bearer owner" } });
+    return (await r.json()).oobCodes.find((c) => c.email === email);
+  }, "sign-in link");
+  const to = new URL(new URL(oobLink).searchParams.get("continueUrl"));
+  to.searchParams.set("apiKey", "fake");
+  to.searchParams.set("oobCode", oobCode);
+  to.searchParams.set("mode", "signIn");
+  await pg.goto(to.toString());
+  await pg.waitForSelector("#days .day", { state: "attached" });
+  await pg.waitForFunction(() => document.getElementById("whoName").textContent !== "Guest");
+  await until(() => hParam(pg), "list code in the url");
+  await synced(pg);
+  return email;
+};
 
 export const tests = {
-  "sync: a fresh device with no link gets exactly one list": async (browser, url) => {
+  "guest: plans stay on this device and nothing syncs": async (browser, url) => {
     const { pg, ctx, errors } = await open(browser, url);
     await synced(pg);
-    const id = await until(() => pg.evaluate(() => new URL(location.href).searchParams.get("h")), "code in the url");
-    const uid = Object.keys((await until(() => getDoc(id), "household"))?.members || {})[0];
+    assert.equal(await who(pg), "Guest");
+    assert.equal(hParam(pg), null, "no list code for a guest");
+    await plan(pg, "Mon");
+    await pg.click("#listsBtn");
+    assert.equal(await pg.locator("#listsBody button", { hasText: "Invite someone" }).count(), 0, "no sharing");
+    await pg.locator("#listsBody button", { hasText: "Sign in" }).click();
+    assert.equal(await pg.locator("#acctDlg[open]").count(), 1, "nudged to the account dialog");
+    await pg.reload();
+    await pg.waitForSelector("#days .day", { state: "attached" });
+    assert.equal(await pg.locator("#days .day:nth-child(4) .m.empty").count(), 0, "plan kept on the device");
+    assert.equal(hParam(pg), null);
+    noErrors(errors);
+    await ctx.close();
+  },
+
+  "sync: first sign-in seeds exactly one Home list from this device": async (browser, url) => {
+    const { pg, ctx, errors } = await open(browser, url);
+    await synced(pg);
+    await plan(pg, "Mon");
+    await signIn(pg);
+    const id = hParam(pg);
+    const d = await until(async () => {
+      const x = await getDoc(id);
+      return x && x.meals ? x : null;
+    }, "seed write");
+    assert.equal(Object.keys(d.meals).length, 8, "the device's meals came along");
+    assert.equal(d.weeks[WK].plan.Mon.length > 0, true, "and its plan");
+    assert.equal(d.name, "Home");
+    const uid = Object.keys(d.members)[0];
     const user = await until(async () => {
       const r = await fetch(DOCS + "users/" + uid, { headers: { authorization: "Bearer owner" } });
       return r.ok ? plain({ mapValue: { fields: (await r.json()).fields } }) : null;
@@ -54,10 +105,15 @@ export const tests = {
     noErrors(errors);
     await ctx.close();
   },
-  "sync: a new link seeds the household from this device": async (browser, url) => {
+
+  "sync: a guest on an invite link is asked to sign in, then joins and seeds it": async (browser, url) => {
     const id = code();
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
-    await synced(pg);
+    await pg.waitForSelector("#acctDlg[open]");
+    assert.match(await pg.locator("#acctBody").textContent(), /invited/, "says why");
+    assert.equal(await getDoc(id), null, "nothing written while a guest");
+    await signIn(pg);
+    assert.equal(hParam(pg), id, "still on the invited list");
     const d = await until(async () => {
       const x = await getDoc(id);
       return x && x.meals ? x : null;
@@ -69,6 +125,20 @@ export const tests = {
     await plan(pg, "Mon");
     await until(async () => (await getDoc(id))?.weeks[WK]?.plan?.Mon, "planned night in the document");
     await synced(pg);
+    noErrors(errors);
+    await ctx.close();
+  },
+
+  "sync: signing out leaves a local copy and no list code": async (browser, url) => {
+    const { pg, ctx, errors } = await open(browser, url);
+    await signIn(pg);
+    await plan(pg, "Tue");
+    await synced(pg);
+    await pg.click("#acctBtn");
+    await pg.locator("#acctBody button", { hasText: "Sign out" }).click();
+    await pg.waitForFunction(() => document.getElementById("whoName").textContent === "Guest");
+    assert.equal(hParam(pg), null);
+    assert.equal(await pg.locator("#days .day:nth-child(5) .m.empty").count(), 0, "copy stays on the device");
     noErrors(errors);
     await ctx.close();
   },
@@ -96,7 +166,7 @@ export const tests = {
       }),
     });
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
-    await synced(pg);
+    await signIn(pg);
     const d = await until(async () => {
       const x = await getDoc(id);
       return x && !Array.isArray(x.meals) ? x : null;
@@ -107,7 +177,7 @@ export const tests = {
     await plan(pg, "Tue");
     const after = await until(async () => (await getDoc(id))?.weeks[WK]?.plan?.Tue && getDoc(id), "night written");
     assert.equal(after.weeks[WK].plan.Tue, "a1", "picker lists the migrated meals alphabetically");
-    assert.equal(await pg.locator(".toast").count(), 0, "no save error toast");
+    assert.equal(await pg.locator(".toast", { hasText: "Couldn’t" }).count(), 0, "no save error toast");
     noErrors(errors);
     await ctx.close();
   },
@@ -115,10 +185,10 @@ export const tests = {
   "sync: two devices on one link see each other's changes": async (browser, url) => {
     const id = code();
     const a = await open(browser, url + "?h=" + id);
-    await synced(a.pg);
-    await until(() => getDoc(id), "seed");
+    await signIn(a.pg);
+    await until(async () => (await getDoc(id))?.meals, "seed");
     const b = await open(browser, url + "?h=" + id);
-    await synced(b.pg);
+    await signIn(b.pg);
     await plan(a.pg, "Wed");
     await b.pg.waitForFunction(() => !document.querySelector("#days .day:nth-child(6) .m.empty"));
     await plan(b.pg, "Thu");
@@ -135,11 +205,11 @@ export const tests = {
   "lists: rename, new list, switch back, leave": async (browser, url) => {
     const id = code();
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
-    await synced(pg);
+    const email = await signIn(pg);
     await until(async () => (await getDoc(id))?.meals, "seed");
     await pg.click("#acctBtn");
     assert.equal(await pg.locator("#acctDlg[open]").count(), 1);
-    assert.equal(await pg.locator("#acctBody button", { hasText: "Sign in with Google" }).count(), 1);
+    assert.match(await pg.locator("#acctBody").textContent(), new RegExp(email), "shows who's signed in");
     await pg.locator("#acctDlg [data-close]").click();
     await pg.click("#listsBtn");
     assert.equal(await pg.locator("#listsDlg[open]").count(), 1);
@@ -178,8 +248,8 @@ export const tests = {
   "sync: changes made offline land when back online": async (browser, url) => {
     const id = code();
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
-    await synced(pg);
-    await until(() => getDoc(id), "seed");
+    await signIn(pg);
+    await until(async () => (await getDoc(id))?.meals, "seed");
     await ctx.setOffline(true);
     await plan(pg, "Fri");
     await pause(1500);

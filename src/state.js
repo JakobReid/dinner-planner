@@ -357,12 +357,6 @@ export function removeExtra(extra) {
   w.extras = w.extras.filter((y) => y !== extra);
   save(extrasPatch());
 }
-export function untickAll() {
-  const w = wk(true);
-  w.checked = {};
-  w.extras.forEach((x) => (x.done = false));
-  save(weekPatch(viewWeek, { checked: DEL, extras: w.extras }));
-}
 export function setName(name) {
   state.name = name.trim().slice(0, 60) || "Home";
   save({ name: state.name });

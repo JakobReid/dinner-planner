@@ -1,23 +1,20 @@
 // Household sync over Firestore. One document per household, a members map on each, and a
-// users/{uid} doc naming the households you're in and the one you had open last. Everyone
-// starts anonymous; signing in with Google or an email link upgrades that same account so
-// nothing is lost. Writes are field-level merges through the offline cache. Without Firebase
-// config the app runs on this device only.
+// users/{uid} doc naming the households you're in and the one you had open last. Guests keep
+// everything on this device; signing in with Google or an email link turns on sync and sharing,
+// and a first sign-in seeds your Home list from what's on the device. Writes are field-level
+// merges through the offline cache. Without Firebase config the app runs on this device only.
 import { initializeApp } from "firebase/app";
 import {
-  EmailAuthProvider,
   GoogleAuthProvider,
   connectAuthEmulator,
   getAuth,
   getRedirectResult,
   isSignInWithEmailLink,
-  linkWithCredential,
-  linkWithPopup,
-  linkWithRedirect,
   onAuthStateChanged,
   sendSignInLinkToEmail,
-  signInAnonymously,
-  signInWithCredential,
+  signInWithEmailLink,
+  signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from "firebase/auth";
 import {
@@ -36,7 +33,7 @@ import {
 import { $, toast } from "./dom.js";
 import { DEL, replaceState, setRemote, state, toDoc } from "./state.js";
 import { render } from "./render.js";
-import { initLists, renderProfile } from "./views/lists.js";
+import { initLists, promptSignIn, renderProfile } from "./views/lists.js";
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -114,6 +111,17 @@ const empty = () => ({ meals: {}, weeks: {}, aisles: {} });
 
 /* ---------- which household ---------- */
 
+// Signed out: keep the last list as a local copy and stop syncing.
+function detach() {
+  if (unsub) unsub();
+  unsub = null;
+  setRemote(null);
+  uid = null;
+  current = null;
+  user = { households: {}, current: null };
+  status("");
+}
+
 // Called whenever the signed-in user changes: work out which household to show and subscribe.
 async function attach(u) {
   uid = u.uid;
@@ -127,10 +135,11 @@ async function attach(u) {
   }
   let code = urlCode() || local.get("household");
   if (code && !user.households[code]) {
-    // an invite link, or this device's household from before accounts: add yourself
+    // an invite link, or the list this device was on before signing in: add yourself
     await write(hhRef(code), { members: { [uid]: true } });
   } else if (!code) code = user.current;
   if (!code) {
+    // first sign-in: what's on this device becomes your Home list
     code = randomCode();
     await setDoc(hhRef(code), toFields(fresh(toDoc(state), "Home")));
   }
@@ -188,7 +197,7 @@ const api = {
   },
   account() {
     const u = auth && auth.currentUser;
-    if (!u || u.isAnonymous) return null;
+    if (!u) return null;
     return { email: u.email || "", name: u.displayName || u.email || "Signed in" };
   },
   // Names of your lists, read live so renames by others show up; lists you can't read any more drop out.
@@ -269,15 +278,11 @@ const api = {
   async signInGoogle() {
     const provider = new GoogleAuthProvider();
     try {
-      await linkWithPopup(auth.currentUser, provider);
+      await signInWithPopup(auth, provider);
       toast("Signed in. Your lists now follow you to any device.");
-      renderProfile();
     } catch (e) {
-      if (e.code === "auth/credential-already-in-use") {
-        // this Google account already exists: switch to it, and it joins this device's list
-        await signInWithCredential(auth, GoogleAuthProvider.credentialFromError(e));
-      } else if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
-        await linkWithRedirect(auth.currentUser, provider);
+      if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
+        await signInWithRedirect(auth, provider);
       } else if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
         toast("Couldn’t sign in with Google.");
       }
@@ -286,7 +291,7 @@ const api = {
   async sendEmailLink(email) {
     const u = new URL(location.href);
     u.hash = "";
-    u.searchParams.set("h", current);
+    if (current) u.searchParams.set("h", current);
     try {
       await sendSignInLinkToEmail(auth, email, { url: u.toString(), handleCodeInApp: true });
       local.set("emailForSignIn", email);
@@ -305,24 +310,15 @@ const api = {
 
 // Finish a Google redirect or an email link if we landed here from one.
 async function finishSignIn() {
-  try {
-    await getRedirectResult(auth);
-  } catch (e) {
-    if (e.code === "auth/credential-already-in-use")
-      await signInWithCredential(auth, GoogleAuthProvider.credentialFromError(e)).catch(() => {});
-  }
+  await getRedirectResult(auth).catch(() => toast("Couldn’t sign in with Google."));
   if (!isSignInWithEmailLink(auth, location.href)) return;
   const email = local.get("emailForSignIn") || prompt("Confirm your email to finish signing in:");
   if (!email) return;
-  const cred = EmailAuthProvider.credentialWithLink(email, location.href);
   try {
-    if (auth.currentUser) await linkWithCredential(auth.currentUser, cred);
-    else await signInWithCredential(auth, cred);
+    await signInWithEmailLink(auth, email, location.href);
     toast("Signed in. Your lists now follow you to any device.");
-  } catch (e) {
-    if (e.code === "auth/credential-already-in-use" || e.code === "auth/email-already-in-use")
-      await signInWithCredential(auth, cred).catch(() => toast("Couldn’t finish signing in."));
-    else toast("That sign-in link didn’t work. Ask for a new one.");
+  } catch {
+    toast("That sign-in link didn’t work. Ask for a new one.");
   }
   local.set("emailForSignIn", null);
   const u = new URL(location.href);
@@ -349,9 +345,12 @@ export async function initSync() {
     await finishSignIn();
     initLists(api);
     onAuthStateChanged(auth, (u) => {
-      if (!u)
-        signInAnonymously(auth).catch(() => status("Couldn’t reach the shared plan. Saving on this device for now."));
-      else if (u.uid !== uid) attach(u).catch(() => status("Couldn’t reach this list. Saving on this device for now."));
+      if (!u) {
+        detach();
+        // a guest opening an invite link: the code stays in the URL and is picked up after sign-in
+        if (urlCode()) promptSignIn("You’ve been invited to a list. Sign in to join it.");
+      } else if (u.uid !== uid)
+        attach(u).catch(() => status("Couldn’t reach this list. Saving on this device for now."));
       renderProfile();
     });
   } catch {

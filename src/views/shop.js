@@ -1,17 +1,6 @@
 import { AISLES } from "../aisles.js";
 import { $, el } from "../dom.js";
-import {
-  wk,
-  keyOf,
-  aisleOf,
-  shoppingItems,
-  tick,
-  addExtra,
-  setExtraDone,
-  removeExtra,
-  untickAll,
-  setAisle,
-} from "../state.js";
+import { wk, keyOf, aisleOf, shoppingItems, tick, addExtra, setExtraDone, removeExtra, setAisle } from "../state.js";
 import { onRender } from "../render.js";
 
 // A native select styled as a chip: setting it files this ingredient under that aisle in every meal.
@@ -129,10 +118,6 @@ export function initShop() {
   $("extraIn").addEventListener("keydown", (e) => {
     if (e.key === "Enter") add();
   });
-  $("untick").onclick = () => {
-    untickAll();
-    renderShop();
-  };
   // aisle pickers stay out of the way until you ask for them
   $("aisleMode").onclick = () => {
     const on = $("shop").classList.toggle("sorting");

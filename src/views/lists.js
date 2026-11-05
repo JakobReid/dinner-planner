@@ -1,5 +1,6 @@
 // Profile button (account dialog) and "My lists" button (lists dialog) in the footer. Only wired
-// up when sync is on; each dialog is built on open so a sync echo never wipes what you're typing.
+// up when Firebase is configured; guests see a sign-in nudge in place of sharing. Each dialog is
+// built on open so a sync echo never wipes what you're typing.
 import { $, el, toast } from "../dom.js";
 import { state, setName } from "../state.js";
 import { openDialog, closeDialog } from "../dialogs.js";
@@ -25,7 +26,14 @@ export function renderProfile() {
   if (!api) return;
   const acct = api.account();
   $("whoName").textContent = acct ? acct.name : "Guest";
-  $("whoSub").textContent = acct ? "Lists follow you to any device" : "Sign in to keep your lists";
+  $("whoSub").textContent = acct ? "Lists follow you to any device" : "Sign in to sync and share";
+}
+
+// Open the account dialog with a reason on top, e.g. a guest landing on an invite link.
+export function promptSignIn(lead) {
+  closeDialog("listsDlg");
+  fillAccount(lead);
+  openDialog("acctDlg");
 }
 
 const busy = async (fn) => {
@@ -44,6 +52,19 @@ function fillLists() {
     setName(nameIn.value);
     nameIn.value = state.name;
   };
+  if (!api.account()) {
+    box.replaceChildren(
+      el("h3", {}, "This list"),
+      nameIn,
+      el("p", { class: "muted" }, "It lives on this device. Sign in to share it or use it on another device."),
+      el(
+        "button",
+        { class: "btn", onclick: () => promptSignIn("Sign in to share this list and sync it to your other devices.") },
+        "Sign in",
+      ),
+    );
+    return;
+  }
   const others = el("div", { class: "others" });
   api.names().then((names) => {
     others.replaceChildren(
@@ -119,12 +140,22 @@ function fillLists() {
   );
 }
 
-function fillAccount() {
+// Google's four-colour G, inline so it works offline.
+function googleMark() {
+  const span = el("span", { class: "g", "aria-hidden": "true" });
+  span.innerHTML =
+    '<svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.7 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.7 24c0-1.6.3-3.1.8-4.6l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.9 2.3-8.2 2.3-6.3 0-11.6-4.2-13.5-10l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>';
+  return span;
+}
+
+function fillAccount(
+  lead = "Sign in to sync across your devices and share lists. What’s on this device comes with you.",
+) {
   const acct = api.account();
   const email = el("input", {
     type: "email",
     class: "lname",
-    placeholder: "you@example.com",
+    placeholder: "Your email",
     "aria-label": "Email address",
     autocomplete: "email",
   });
@@ -142,20 +173,22 @@ function fillAccount() {
     : el(
         "div",
         { class: "acct" },
-        el("p", { class: "muted" }, "Sign in to keep your lists on every device. Nothing here is lost."),
+        el("p", { class: "muted" }, lead),
         el(
           "button",
-          { class: "btn", onclick: () => busy(() => api.signInGoogle().then(() => closeDialog("acctDlg"))) },
+          { class: "btn google", onclick: () => busy(() => api.signInGoogle().then(() => closeDialog("acctDlg"))) },
+          googleMark(),
           "Sign in with Google",
         ),
+        el("span", { class: "or" }, "or"),
         el(
           "div",
-          { class: "r" },
+          { class: "group" },
           email,
           el(
             "button",
             {
-              class: "btn ghost",
+              class: "btn",
               onclick: () => {
                 const v = email.value.trim();
                 if (!v.includes("@")) return toast("Enter your email first.");

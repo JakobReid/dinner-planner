@@ -236,7 +236,6 @@ section {
   font-size: 1rem;
 }
 .day .m.out {
-  color: var(--muted);
   font-weight: 500;
   font-style: italic;
 }
@@ -591,6 +590,10 @@ section {
   flex-direction: column;
   gap: 10px;
 }
+/* the sheet body takes autofocus so the first button doesn't; it's not a control itself */
+.lists:focus-visible {
+  outline: none;
+}
 .lists h3 {
   margin: 10px 0 0;
   font-size: 0.9rem;
@@ -644,8 +647,50 @@ section {
 .lists .acct {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
+  gap: 10px;
+}
+.btn.google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.btn.google .g {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+}
+.lists .or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.lists .or::before,
+.lists .or::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--line);
+}
+/* input and its button joined into one pill */
+.lists .group {
+  display: flex;
+}
+.lists .group .lname {
+  flex: 1;
+  border-radius: 12px 0 0 12px;
+  border-right: 0;
+}
+.lists .group .btn {
+  border-radius: 0 12px 12px 0;
+  padding: 10px 14px;
+  white-space: nowrap;
 }
 
 #mName,

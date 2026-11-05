@@ -25,9 +25,12 @@ const hh = (db, id = ID) => doc(db, "households", id);
 const seed = (id, data) => env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), "households", id), data));
 
 describe("household membership", () => {
-  it("needs a signed-in user", async () => {
+  it("needs a signed-in user, and an anonymous account doesn't count", async () => {
     await assertFails(getDoc(hh(anon())));
     await assertFails(setDoc(hh(anon()), fresh("u1")));
+    const guest = env.authenticatedContext("g1", { firebase: { sign_in_provider: "anonymous" } }).firestore();
+    await assertFails(setDoc(hh(guest), fresh("g1")));
+    await assertFails(setDoc(doc(guest, "users", "g1"), { households: {} }));
   });
 
   it("you can create a household with just yourself in it", async () => {

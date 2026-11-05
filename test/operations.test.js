@@ -104,17 +104,11 @@ describe("shopping", () => {
     expect(last()).toEqual({ weeks: { "2026-10-30": { checked: { lettuce: DEL } } } });
   });
 
-  it("extras are written whole and untick resets them", () => {
+  it("extras are written whole and the last one out drops the week", () => {
     S.addExtra("foil");
     const [x] = S.wk().extras;
     S.setExtraDone(x, true);
     expect(last()).toEqual({ weeks: { "2026-10-30": { extras: [{ id: x.id, name: "foil", done: true }] } } });
-    S.tick("rice", true);
-    S.untickAll();
-    expect(S.wk().checked).toEqual({});
-    expect(last()).toEqual({
-      weeks: { "2026-10-30": { checked: DEL, extras: [{ id: x.id, name: "foil", done: false }] } },
-    });
     S.removeExtra(x);
     expect(last()).toEqual({ weeks: { "2026-10-30": DEL } });
   });
