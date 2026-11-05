@@ -1,7 +1,7 @@
 // Profile button (account dialog) and "My lists" button (lists dialog) in the footer. Only wired
 // up when Firebase is configured; guests see a sign-in nudge in place of sharing. Each dialog is
 // built on open so a sync echo never wipes what you're typing.
-import { $, el, toast } from "../dom.js";
+import { $, el, leaveIcon, mailIcon, plusIcon, shareIcon, toast, userIcon } from "../dom.js";
 import { state, setName } from "../state.js";
 import { openDialog, closeDialog } from "../dialogs.js";
 
@@ -26,6 +26,8 @@ export function renderProfile() {
   if (!api) return;
   const acct = api.account();
   $("whoName").textContent = acct ? acct.name : "Guest";
+  // Google gives a photo; email sign-ins and guests get a blank disc
+  $("whoPic").style.backgroundImage = acct && acct.photo ? `url("${acct.photo}")` : "";
   $("whoSub").textContent = acct ? "Lists follow you to any device" : "Sign in to sync and share";
 }
 
@@ -60,6 +62,7 @@ function fillLists() {
       el(
         "button",
         { class: "btn", onclick: () => promptSignIn("Sign in to share this list and sync it to your other devices.") },
+        userIcon(),
         "Sign in",
       ),
     );
@@ -91,20 +94,9 @@ function fillLists() {
     el("h3", {}, "This list"),
     nameIn,
     el(
-      "p",
-      { class: "muted" },
-      members <= 1 ? "Just you in here." : `${members} people share this list.`,
-      " Anyone with the invite link can join.",
-    ),
-    el(
       "div",
       { class: "r" },
-      el("button", { class: "btn", onclick: () => api.share() }, "Invite someone"),
-      el(
-        "button",
-        { class: "btn ghost", onclick: () => busy(() => api.copyList().then(() => closeDialog("listsDlg"))) },
-        "Make my own copy",
-      ),
+      el("button", { class: "btn", onclick: () => api.share() }, shareIcon(), "Invite someone"),
       el(
         "button",
         {
@@ -117,6 +109,7 @@ function fillLists() {
             if (confirm(msg)) busy(() => api.leaveList().then(() => closeDialog("listsDlg")));
           },
         },
+        leaveIcon(),
         "Leave",
       ),
     ),
@@ -125,7 +118,7 @@ function fillLists() {
     el(
       "button",
       {
-        class: "btn ghost",
+        class: "btn",
         onclick: () => {
           const name = prompt("Name the new list:", "Lake trip");
           if (name && name.trim())
@@ -135,6 +128,7 @@ function fillLists() {
             });
         },
       },
+      plusIcon(),
       "New list",
     ),
   );
@@ -167,6 +161,7 @@ function fillAccount(
         el(
           "button",
           { class: "btn ghost", onclick: () => busy(() => api.signOutUser().then(() => closeDialog("acctDlg"))) },
+          leaveIcon(),
           "Sign out",
         ),
       )
@@ -195,6 +190,7 @@ function fillAccount(
                 busy(() => api.sendEmailLink(v).then(() => closeDialog("acctDlg")));
               },
             },
+            mailIcon(),
             "Email me a link",
           ),
         ),

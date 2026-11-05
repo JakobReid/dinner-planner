@@ -1,6 +1,6 @@
 import { DAYS, DAY_FULL, addDays, fmt, parse, thisWeek, todayStr } from "../dates.js";
-import { $, el, outIcon } from "../dom.js";
-import { viewWeek, setViewWeek, wk, mealById, clearWeek } from "../state.js";
+import { $, el, leftoversIcon, outIcon } from "../dom.js";
+import { SPECIAL, viewWeek, setViewWeek, wk, mealById, clearWeek } from "../state.js";
 import { onRender, render } from "../render.js";
 import { openPicker } from "./picker.js";
 import { openMeal } from "./editor.js";
@@ -39,9 +39,9 @@ function renderWeek({ flash } = {}) {
   DAYS.forEach((d, i) => {
     const date = addDays(viewWeek, i);
     const v = plan[d];
-    const m = v && v !== "out" ? mealById(v) : null;
+    const m = v && !SPECIAL[v] ? mealById(v) : null;
     let main;
-    if (v === "out") main = el("span", { class: "m out" }, outIcon(), "Eating out / leftovers");
+    if (SPECIAL[v]) main = el("span", { class: "m out" }, v === "out" ? outIcon() : leftoversIcon(), SPECIAL[v]);
     else if (m) main = el("span", { class: "m" }, el("span", { class: "n" }, m.name));
     else main = el("span", { class: "m empty" }, date < today ? "" : "Pick a dinner");
     const cls =
@@ -49,7 +49,7 @@ function renderWeek({ flash } = {}) {
       (date === today ? " today" : "") +
       (date < today ? " past" : "") +
       (flash && flash.includes(i) ? " flash" : "");
-    const label = `${DAY_FULL[i]} ${fmt(date)}: ${m ? m.name : v === "out" ? "eating out" : "nothing picked"}`;
+    const label = `${DAY_FULL[i]} ${fmt(date)}: ${m ? m.name : SPECIAL[v] ? SPECIAL[v].toLowerCase() : "nothing picked"}`;
     box.append(
       el(
         "button",

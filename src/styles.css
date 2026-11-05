@@ -6,7 +6,7 @@
   --line: #d3ddd5;
   --accent: #1b2a22;
   --accent-ink: #f4f7f3;
-  --chip: #e1ebe3;
+  --chip: #c8d7cb;
   --hot: #c9452a;
   --tape: #6aff6c;
   --tape-ink: #111a12;
@@ -295,6 +295,20 @@ section {
   color: var(--hot);
   padding-left: 4px;
   padding-right: 4px;
+}
+/* a secondary action that reads as text, like Clear week */
+.btn.quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  color: var(--muted);
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.btn.quiet .ico {
+  width: 16px;
+  height: 16px;
 }
 .btn.big {
   font-size: 1.05rem;
@@ -649,6 +663,16 @@ section {
   flex-direction: column;
   gap: 10px;
 }
+.lists .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.lists .btn .ico {
+  width: 16px;
+  height: 16px;
+}
 .btn.google {
   display: flex;
   align-items: center;
@@ -943,6 +967,13 @@ label.f textarea {
   background: var(--surface);
   color: var(--ink);
 }
+.profile .avatar {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--chip) center / cover no-repeat;
+}
 .profile .who {
   display: flex;
   flex-direction: column;
@@ -984,12 +1015,20 @@ label.f textarea {
 }
 .seg button {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;
+}
+.seg .ico {
+  width: 16px;
+  height: 16px;
 }
 .seg button[aria-pressed="true"] {
   background: var(--accent);

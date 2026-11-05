@@ -198,7 +198,7 @@ const api = {
   account() {
     const u = auth && auth.currentUser;
     if (!u) return null;
-    return { email: u.email || "", name: u.displayName || u.email || "Signed in" };
+    return { email: u.email || "", name: u.displayName || u.email || "Signed in", photo: u.photoURL || "" };
   },
   // Names of your lists, read live so renames by others show up; lists you can't read any more drop out.
   async names() {
@@ -225,11 +225,6 @@ const api = {
   async createList(name) {
     const id = randomCode();
     await setDoc(hhRef(id), toFields(fresh(empty(), name || "New list")));
-    await api.switchTo(id);
-  },
-  async copyList() {
-    const id = randomCode();
-    await setDoc(hhRef(id), toFields(fresh(toDoc(state), `${state.name} copy`)));
     await api.switchTo(id);
   },
   // Leaving removes you; the last one out deletes the list. You land on another list, or a new Home.

@@ -30,7 +30,7 @@ export const tests = {
     const weeks = await pg.evaluate(() => JSON.parse(localStorage.getItem("dinner-planner-v1")).weeks);
     // page load only reads; a save writes the migrated shape, so trigger one
     await pg.locator("#days .day").last().click();
-    await pg.locator("#pickActs button.alt", { hasText: "Eating out" }).click();
+    await pg.locator("#pickActs button.alt", { hasText: "Leftovers" }).click();
     await pause(100);
     const migrated = await pg.evaluate(() => JSON.parse(localStorage.getItem("dinner-planner-v1")).weeks);
     assert.deepEqual(migrated["2026-10-23"], {
@@ -38,7 +38,7 @@ export const tests = {
       checked: { apple: true },
       extras: [{ id: "x", name: "Milk", done: false }],
     });
-    assert.deepEqual(migrated["2026-10-30"].plan, { Sat: "a", Sun: "b", Tue: "b", Thu: "out" });
+    assert.deepEqual(migrated["2026-10-30"].plan, { Sat: "a", Sun: "b", Tue: "b", Thu: "leftovers" });
     assert.deepEqual(migrated["2026-11-06"].plan, { Fri: "a" });
     assert.ok(!migrated["2026-10-26"] && !migrated["2026-11-02"], "old keys gone");
     void weeks;

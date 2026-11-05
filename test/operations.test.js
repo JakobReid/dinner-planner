@@ -52,6 +52,8 @@ describe("nights", () => {
     S.setNight("Wed", "m1"); // 4 Nov, future
     S.setViewWeek("2026-10-23");
     S.setNight("Sat", "m2"); // 24 Oct
+    S.setNight("Sun", "out");
+    S.setNight("Mon", "leftovers");
     expect(S.lastHad()).toEqual({ m1: "2026-10-30", m2: "2026-10-24" });
   });
 });

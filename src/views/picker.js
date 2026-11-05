@@ -1,6 +1,6 @@
 // "Pick a dinner" dialog for one night: search meals, pick one, or add/edit a meal without leaving.
 import { DAYS, DAY_FULL, addDays, fmt } from "../dates.js";
-import { $, el, outIcon, clearIcon, plusIcon, editIcon } from "../dom.js";
+import { $, el, outIcon, leftoversIcon, clearIcon, plusIcon, editIcon } from "../dom.js";
 import { viewWeek, wk, setNight, matchMeals } from "../state.js";
 import { render } from "../render.js";
 import { openDialog, closeDialog } from "../dialogs.js";
@@ -80,7 +80,13 @@ function renderPick() {
       "button",
       { class: "alt" + (cur === "out" ? " cur" : ""), onclick: () => setDay(d, "out") },
       outIcon(),
-      "Eating out / leftovers",
+      "Eating out",
+    ),
+    el(
+      "button",
+      { class: "alt" + (cur === "leftovers" ? " cur" : ""), onclick: () => setDay(d, "leftovers") },
+      leftoversIcon(),
+      "Leftovers",
     ),
   );
   if (cur)

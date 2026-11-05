@@ -32,7 +32,7 @@ follow you between devices. Anonymous auth tokens are refused by the rules.
 
 The 24-character code in the invite link is the only key. Opening a link adds you to that household's
 members; nobody can list households or guess codes. Everyone in a list is equal: anyone can invite,
-rename, copy the list to one of their own, or leave, and the last person out deletes it. There are no
+rename, or leave, and the last person out deletes it. There are no
 owners or admins.
 
 Each state operation describes its change as a nested patch which sync merges into the document field

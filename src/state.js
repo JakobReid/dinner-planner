@@ -247,6 +247,9 @@ export function wk(create, key) {
 }
 
 // Most recent date (today or earlier) each meal was planned, keyed by meal id.
+// Nights that aren't a meal: the plan holds the key instead of a meal id.
+export const SPECIAL = { out: "Eating out", leftovers: "Leftovers" };
+
 export function lastHad() {
   const today = todayStr();
   const out = {};
@@ -254,7 +257,7 @@ export function lastHad() {
     const p = state.weeks[k].plan;
     DAYS.forEach((d, i) => {
       const id = p[d];
-      if (!id || id === "out") return;
+      if (!id || SPECIAL[id]) return;
       const date = addDays(k, i);
       if (date <= today && (!out[id] || date > out[id])) out[id] = date;
     });

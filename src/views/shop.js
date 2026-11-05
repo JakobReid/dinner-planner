@@ -1,5 +1,5 @@
 import { AISLES } from "../aisles.js";
-import { $, el } from "../dom.js";
+import { $, el, checkIcon, editIcon } from "../dom.js";
 import { wk, keyOf, aisleOf, shoppingItems, tick, addExtra, setExtraDone, removeExtra, setAisle } from "../state.js";
 import { onRender } from "../render.js";
 
@@ -119,8 +119,7 @@ export function initShop() {
     if (e.key === "Enter") add();
   });
   // aisle pickers stay out of the way until you ask for them
-  $("aisleMode").onclick = () => {
-    const on = $("shop").classList.toggle("sorting");
-    $("aisleMode").textContent = on ? "Done" : "Edit aisles";
-  };
+  const aisleBtn = (on) => $("aisleMode").replaceChildren(on ? checkIcon() : editIcon(), on ? "Done" : "Edit aisles");
+  aisleBtn(false);
+  $("aisleMode").onclick = () => aisleBtn($("shop").classList.toggle("sorting"));
 }
