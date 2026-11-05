@@ -182,13 +182,37 @@ export const tests = {
     await ctx.close();
   },
 
-  "sync: two devices on one link see each other's changes": async (browser, url) => {
+  "sync: a list code alone doesn't get you into someone else's list": async (browser, url) => {
     const id = code();
     const a = await open(browser, url + "?h=" + id);
     await signIn(a.pg);
     await until(async () => (await getDoc(id))?.meals, "seed");
     const b = await open(browser, url + "?h=" + id);
     await signIn(b.pg);
+    assert.notEqual(hParam(b.pg), id, "bounced to a list of their own");
+    assert.match(await b.pg.locator(".toast").textContent(), /hasn’t invited/);
+    assert.equal(Object.keys((await getDoc(id)).members).length, 1, "nobody was added");
+    noErrors(a.errors);
+    noErrors(b.errors);
+    await a.ctx.close();
+    await b.ctx.close();
+  },
+
+  "sync: an invited email finds the list on sign-in and both see each other's changes": async (browser, url) => {
+    const id = code();
+    const a = await open(browser, url + "?h=" + id);
+    await signIn(a.pg);
+    await until(async () => (await getDoc(id))?.meals, "seed");
+    const emailB = code() + "@e2e.test";
+    await a.pg.click("#listsBtn");
+    a.pg.once("dialog", (d) => d.accept(emailB.toUpperCase()));
+    await a.pg.locator("#listsBody button", { hasText: "Invite someone" }).click();
+    await until(async () => (await getDoc(id))?.invites?.[emailB], "invite written, lowercased");
+    assert.equal(await a.pg.locator("#listsBody .irow", { hasText: emailB }).count(), 1, "shows in the dialog");
+    await a.pg.locator("#listsDlg [data-close]").click();
+    const b = await open(browser, url); // no link needed
+    await signIn(b.pg, emailB);
+    assert.equal(hParam(b.pg), id, "landed straight in the shared list");
     await plan(a.pg, "Wed");
     await b.pg.waitForFunction(() => !document.querySelector("#days .day:nth-child(6) .m.empty"));
     await plan(b.pg, "Thu");

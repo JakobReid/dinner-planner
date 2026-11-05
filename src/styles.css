@@ -230,10 +230,7 @@ section {
   margin-top: 1px;
 }
 .day .m.empty {
-  color: var(--muted);
-  font-family: inherit;
-  font-weight: 400;
-  font-size: 1rem;
+  min-height: 1.65rem; /* an empty night keeps the row as tall as a planned one */
 }
 .day .m.out {
   font-weight: 500;
@@ -659,6 +656,26 @@ section {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.lists .irow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 4px 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.lists .irow button {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--muted);
 }
 .lists .lrow {
   text-align: left;

@@ -1,8 +1,20 @@
 // Runs against the Firestore emulator: npm run test:rules
-import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { assertFails, assertSucceeds, initializeTestEnvironment } from "@firebase/rules-unit-testing";
-import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
+import {
+  FieldPath,
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 
 const ID = "abcdefghij0123456789klmn";
 const meals = { m1: { id: "m1", name: "Tacos", ingredients: [], notes: "" } };
@@ -48,12 +60,34 @@ describe("household membership", () => {
     await assertFails(setDoc(hh(user("u2")), { weeks: { "2026-10-30": { plan: { Fri: "m1" } } } }, { merge: true }));
   });
 
-  it("joining by link adds only yourself and touches nothing else", async () => {
+  it("only an invited, verified email can join, and it adds only yourself", async () => {
+    await seed(ID, { ...fresh("u1"), invites: { "b@x.com": true } });
+    const b = (uid, extra = {}) =>
+      env.authenticatedContext(uid, { email: "B@X.com", email_verified: true, ...extra }).firestore();
+    await assertFails(setDoc(hh(user("u2")), { members: { u2: true } }, { merge: true }), "no email");
+    await assertFails(setDoc(hh(b("u2", { email_verified: false })), { members: { u2: true } }, { merge: true }));
+    await assertFails(setDoc(hh(b("u2", { email: "c@x.com" })), { members: { u2: true } }, { merge: true }));
+    await assertSucceeds(setDoc(hh(b("u2")), { members: { u2: true } }, { merge: true }), "case-insensitive");
+    await assertSucceeds(getDoc(hh(b("u2"))));
+    await assertFails(setDoc(hh(b("u3")), { members: { u3: true }, name: "Mine now" }, { merge: true }));
+    await assertFails(setDoc(hh(b("u3")), { members: { u3: true, u4: true } }, { merge: true }));
+  });
+
+  it("members manage invites; an invited person can find the list by their email", async () => {
     await seed(ID, fresh("u1"));
-    await assertSucceeds(setDoc(hh(user("u2")), { members: { u2: true } }, { merge: true }));
-    await assertSucceeds(getDoc(hh(user("u2"))));
-    await assertFails(setDoc(hh(user("u3")), { members: { u3: true }, name: "Mine now" }, { merge: true }));
-    await assertFails(setDoc(hh(user("u3")), { members: { u3: true, u4: true } }, { merge: true }));
+    await assertSucceeds(setDoc(hh(user("u1")), { invites: { "b@x.com": true } }, { merge: true }));
+    await assertFails(setDoc(hh(user("u2")), { invites: { "me@x.com": true } }, { merge: true }), "outsider");
+    const byInvite = (db, email) =>
+      getDocs(query(collection(db, "households"), where(new FieldPath("invites", email), "==", true)));
+    const b = env.authenticatedContext("u2", { email: "b@x.com", email_verified: true }).firestore();
+    const c = env.authenticatedContext("u3", { email: "c@x.com", email_verified: true }).firestore();
+    const found = await assertSucceeds(byInvite(b, "b@x.com"));
+    expect(found.docs.map((d) => d.id)).toEqual([ID]);
+    await assertFails(byInvite(c, "b@x.com"), "someone else's invites");
+    expect((await assertSucceeds(byInvite(c, "c@x.com"))).size).toBe(0, "asking for your own is fine, just empty");
+    // a dotted string path would split on the dots in the address
+    await assertSucceeds(updateDoc(hh(user("u1")), new FieldPath("invites", "b@x.com"), deleteField()));
+    expect((await assertSucceeds(byInvite(b, "b@x.com"))).size).toBe(0, "invite withdrawn");
   });
 
   it("nobody can add or remove anyone else", async () => {

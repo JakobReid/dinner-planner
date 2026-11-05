@@ -43,7 +43,7 @@ function renderWeek({ flash } = {}) {
     let main;
     if (SPECIAL[v]) main = el("span", { class: "m out" }, v === "out" ? outIcon() : leftoversIcon(), SPECIAL[v]);
     else if (m) main = el("span", { class: "m" }, el("span", { class: "n" }, m.name));
-    else main = el("span", { class: "m empty" }, date < today ? "" : "Pick a dinner");
+    else main = el("span", { class: "m empty" });
     const cls =
       "day" +
       (date === today ? " today" : "") +

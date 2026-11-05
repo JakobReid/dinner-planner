@@ -18,17 +18,22 @@ import {
   signOut,
 } from "firebase/auth";
 import {
+  FieldPath,
+  collection,
   connectFirestoreEmulator,
   deleteDoc,
   deleteField,
   doc,
   getDoc,
+  getDocs,
   initializeFirestore,
   onSnapshot,
   persistentLocalCache,
   persistentMultipleTabManager,
+  query,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { $, toast } from "./dom.js";
 import { DEL, replaceState, setRemote, state, toDoc } from "./state.js";
@@ -133,17 +138,44 @@ async function attach(u) {
   } catch {
     user = { households: {}, current: null };
   }
+  const found = await discover(u.email);
   let code = urlCode() || local.get("household");
   if (code && !user.households[code]) {
-    // an invite link, or the list this device was on before signing in: add yourself
-    await write(hhRef(code), { members: { [uid]: true } });
-  } else if (!code) code = user.current;
+    // a list link, or the list this device was on before signing in: add yourself if invited
+    try {
+      await write(hhRef(code), { members: { [uid]: true } });
+    } catch {
+      toast(`That list hasn’t invited ${u.email || "you"}. Ask them to add your email.`);
+      setUrlCode(null);
+      local.set("household", null);
+      code = null;
+    }
+  }
+  if (!code) code = user.current || found[0];
   if (!code) {
     // first sign-in: what's on this device becomes your Home list
     code = randomCode();
     await setDoc(hhRef(code), toFields(fresh(toDoc(state), "Home")));
   }
   await open(code);
+}
+
+// Lists that invited this email and aren't yours yet: join them so they simply appear.
+async function discover(email) {
+  const e = (email || "").toLowerCase();
+  if (!e) return [];
+  try {
+    const snap = await getDocs(query(collection(db, "households"), where(new FieldPath("invites", e), "==", true)));
+    const ids = snap.docs.map((d) => d.id).filter((id) => !user.households[id]);
+    for (const id of ids) {
+      await write(hhRef(id), { members: { [uid]: true } });
+      user.households[id] = true;
+    }
+    if (ids.length) saveUser({ households: Object.fromEntries(ids.map((id) => [id, true])) });
+    return ids;
+  } catch {
+    return [];
+  }
 }
 
 async function open(code) {
@@ -248,25 +280,15 @@ const api = {
       await open(code);
     }
   },
-  async share() {
-    const u = new URL(location.href);
-    u.hash = "";
-    u.searchParams.set("h", current);
-    const link = u.toString();
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: `${state.name} on I feel like dinner tonight`, url: link });
-        return;
-      }
-    } catch (e) {
-      if (e && e.name === "AbortError") return;
-    }
-    try {
-      await navigator.clipboard.writeText(link);
-      toast("Link copied. Anyone who opens it joins this list.");
-    } catch {
-      prompt("Copy this link:", link);
-    }
+  // Invites are by email; the list shows up for them once they sign in with it.
+  async invite(email) {
+    const e = email.trim().toLowerCase();
+    await write(hhRef(current), { invites: { [e]: true } });
+    state.invites[e] = true; // the dialog re-renders before the server echo lands
+  },
+  async uninvite(email) {
+    await updateDoc(hhRef(current), new FieldPath("invites", email), deleteField());
+    delete state.invites[email];
   },
 
   /* ---------- account ---------- */

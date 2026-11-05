@@ -30,10 +30,11 @@ keep everything on their device and nothing is written; "Sign in with Google" or
 on sync and sharing, a first sign-in seeds your Home list from the device, and from then on your lists
 follow you between devices. Anonymous auth tokens are refused by the rules.
 
-The 24-character code in the invite link is the only key. Opening a link adds you to that household's
-members; nobody can list households or guess codes. Everyone in a list is equal: anyone can invite,
-rename, or leave, and the last person out deletes it. There are no
-owners or admins.
+Sharing is by email. A member adds an address to the household's `invites` map; when that person
+signs in with a verified matching email the list is found by a query on `invites.<email>` and they
+add themselves to `members`. A list code in the URL on its own gets you nothing unless you're invited.
+Nobody can list households otherwise. Everyone in a list is equal: anyone can invite, withdraw an
+invite, rename, or leave, and the last person out deletes it. There are no owners or admins.
 
 Each state operation describes its change as a nested patch which sync merges into the document field
 by field, so two phones editing different things never overwrite each other. The offline cache queues
