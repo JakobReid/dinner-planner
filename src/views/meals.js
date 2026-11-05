@@ -1,5 +1,5 @@
 import { fmt, todayStr } from "../dates.js";
-import { $, el } from "../dom.js";
+import { $, el, plusIcon } from "../dom.js";
 import { state, wk, lastHad, matchMeals } from "../state.js";
 import { onRender } from "../render.js";
 import { openMeal } from "./editor.js";
@@ -48,6 +48,7 @@ function renderMeals() {
 export function initMeals() {
   onRender(renderMeals);
   // a search that found nothing is probably the name of the meal you're about to add
+  $("addMeal").replaceChildren(plusIcon(), "Add a meal");
   $("addMeal").onclick = () =>
     openMeal(null, { prefill: $("mealQ").value.trim(), onDone: () => ($("mealQ").value = "") });
   $("mealQ").oninput = renderMeals;

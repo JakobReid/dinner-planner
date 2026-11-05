@@ -240,10 +240,8 @@ section {
   font-style: italic;
 }
 /* today: one strip of masking tape across the day, date and meal name; columns stay put */
-.day.today .row {
-  display: inline-grid;
-  grid-template-columns: 4.6rem auto;
-  max-width: 100%;
+.day.today .row,
+.spin .landed .strip span.pick i {
   background:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
     var(--tape);
@@ -266,11 +264,23 @@ section {
   );
 }
 .day.today .row {
+  display: inline-grid;
+  grid-template-columns: 4.6rem auto;
+  max-width: 100%;
   padding: 0.12em 0.6em 0.16em 0.4em;
   margin: 0 0 0 -0.3em;
 }
 .day.today .d small {
   color: inherit;
+}
+.actions .btn:not(.danger):not(.quiet) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.actions .btn .ico {
+  width: 16px;
+  height: 16px;
 }
 .actions {
   display: flex;
@@ -851,6 +861,13 @@ dialog::backdrop {
 .bar .btn {
   flex: none;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bar .btn .ico {
+  width: 16px;
+  height: 16px;
 }
 .nores {
   color: var(--muted);
@@ -1035,6 +1052,162 @@ label.f textarea {
   color: var(--accent-ink);
   border-color: var(--accent);
 }
+/* spin the wheel: a slot window of meal names that lands on tape */
+.spinhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.spin .step {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.tagbox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 6px 8px;
+  cursor: text;
+}
+.tagbox:focus-within {
+  border-color: var(--ink);
+}
+.tagbox input {
+  flex: 1;
+  min-width: 8ch;
+  border: 0;
+  background: none;
+  padding: 4px;
+  font-size: 1rem;
+}
+.tagbox input:focus-visible {
+  outline: none;
+}
+.tags {
+  display: contents;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.tag button {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.tag button:hover {
+  background: var(--line);
+}
+.spin .reel {
+  position: relative;
+  height: 17rem; /* five lines; the pick lands on the middle one */
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--bg);
+}
+.spin .reel:focus-visible {
+  outline: none;
+}
+/* the landing line, with the names above and below fading into the panel */
+.spin .win {
+  position: absolute;
+  inset: 6.8rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  pointer-events: none;
+}
+.spin .reel::before,
+.spin .reel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6.8rem;
+  pointer-events: none;
+  z-index: 1;
+}
+.spin .reel::before {
+  top: 0;
+  background: linear-gradient(var(--bg), transparent);
+}
+.spin .reel::after {
+  bottom: 0;
+  background: linear-gradient(transparent, var(--bg));
+}
+.spin .landed .pick i {
+  transform: rotate(-1.5deg) scale(1.12);
+}
+.spin .strip span {
+  height: 3.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  font-family: var(--hand);
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.spin .strip span.long {
+  font-size: 1.3rem;
+}
+.spin .strip span i {
+  font-style: normal;
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.1em 0.35em; /* room for the handwriting's flourishes, so they aren't cut */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.spin .none .strip span {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.spin .btn .ico {
+  width: 16px;
+  height: 16px;
+}
+.spin .r {
+  display: flex;
+  gap: 10px;
+}
+.spin .r.ends {
+  margin-top: 4px;
+}
+.spin .r .btn:not(.quiet) {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.spin .r.ends {
+  justify-content: space-between;
+}
 .sync {
   margin: 10px 0 0;
   font-size: 0.8rem;
@@ -1053,6 +1226,12 @@ label.f textarea {
   font-size: inherit;
 }
 @media (prefers-reduced-motion: no-preference) {
+  .spin .strip.go {
+    transition: transform 2.2s cubic-bezier(0.1, 0.75, 0.15, 1);
+  }
+  .spin .landed .pick i {
+    transition: transform 0.25s ease-out;
+  }
   .day.flash .m {
     animation: pop 0.45s ease-out;
   }

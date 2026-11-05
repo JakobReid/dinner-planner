@@ -46,6 +46,12 @@ export const mailIcon = () =>
     `<svg viewBox="0 0 24 24" ${STROKE}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>`,
   );
 export const checkIcon = () => icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="m5 12 5 5 9-10"/></svg>`);
+export const wheelIcon = () =>
+  icon(
+    `<svg viewBox="0 0 24 24" ${STROKE}><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 3v7M12 14v7M4.2 7.5l6 3.5M13.8 13l6 3.5M4.2 16.5l6-3.5M13.8 11l6-3.5"/></svg>`,
+  );
+export const againIcon = () =>
+  icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>`);
 export const clearIcon = () => icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="M6 6l12 12M18 6 6 18"/></svg>`);
 export const plusIcon = () => icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="M12 5v14M5 12h14"/></svg>`);
 export const editIcon = () =>

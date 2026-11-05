@@ -295,24 +295,37 @@ export function clearWeek(key) {
   save({ weeks: { [key]: DEL } });
 }
 // Random meals for the empty nights from today on, avoiding this and last week's picks where possible.
-export function fillEmptyNights() {
-  const w = wk(true);
+// Nights from today on with nothing planned, in week order.
+export function emptyNights() {
+  const w = wk();
   const today = todayStr();
-  const empty = DAYS.filter((d, i) => !w.plan[d] && addDays(viewWeek, i) >= today);
-  if (!empty.length || !state.meals.length) return { empty, filled: [] };
+  return DAYS.filter((d, i) => !w.plan[d] && addDays(viewWeek, i) >= today);
+}
+// Meals matching every term, by name or ingredient.
+export function matchAll(terms) {
+  const qs = (Array.isArray(terms) ? terms : [terms || ""]).map((t) => t.trim().toLowerCase()).filter(Boolean);
+  return [...state.meals]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .filter((m) =>
+      qs.every((q) => m.name.toLowerCase().includes(q) || m.ingredients.some((x) => x.name.toLowerCase().includes(q))),
+    );
+}
+// What the wheel can land on: meals matching the terms, preferring ones not had this week or
+// last, and never the one it just showed unless that's all there is.
+export function spinPool(terms, prev) {
+  const all = matchAll(terms);
+  const w = wk();
   const used = new Set([...Object.values(w.plan), ...Object.values(wk(false, addDays(viewWeek, -7)).plan)]);
-  let pool = state.meals.map((m) => m.id).filter((id) => !used.has(id));
-  const filled = [];
-  const plan = {};
-  empty.forEach((d) => {
-    if (!pool.length) pool = state.meals.map((m) => m.id).filter((id) => !Object.values(w.plan).includes(id));
-    if (!pool.length) pool = state.meals.map((m) => m.id);
-    const id = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-    w.plan[d] = plan[d] = id;
-    filled.push(DAYS.indexOf(d));
-  });
-  save({ weeks: { [viewWeek]: { plan } } });
-  return { empty, filled };
+  const tiers = [all.filter((m) => !used.has(m.id)), all.filter((m) => !Object.values(w.plan).includes(m.id)), all];
+  for (const t of tiers) {
+    const fresh = t.filter((m) => m.id !== prev);
+    if (fresh.length) return fresh;
+  }
+  return tiers.find((t) => t.length) || [];
+}
+export function spin(terms, prev) {
+  const pool = spinPool(terms, prev);
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 export function upsertMeal(id, { name, ingredients, notes }) {
   let m = mealById(id);

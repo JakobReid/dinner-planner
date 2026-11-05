@@ -43,6 +43,7 @@
       <section id="week" role="tabpanel" aria-labelledby="t-week">
         <div id="days"></div>
         <div class="actions">
+          <button class="btn" id="spinBtn">Spin the wheel</button>
           <button class="btn danger" id="clearWk">Clear week</button>
         </div>
       </section>
@@ -117,6 +118,37 @@
         <div class="pick acts" id="pickActs"></div>
         <div class="row">
           <div class="r"><button class="btn ghost" data-close>Cancel</button></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="spinDlg">
+      <div class="dlg spin">
+        <div class="spinhead">
+          <h2 id="spinTitle">Friday</h2>
+          <span class="step" id="spinStep"></span>
+        </div>
+        <div class="tagbox" id="spinTagbox">
+          <span class="tags" id="spinTags"></span>
+          <input
+            id="spinQ"
+            type="text"
+            placeholder="Narrow it down by ingredient"
+            aria-label="Narrow the wheel by ingredient"
+            autocomplete="off"
+          />
+        </div>
+        <div class="reel" id="spinReel" aria-live="polite" tabindex="-1" autofocus>
+          <div class="win" aria-hidden="true"></div>
+          <div class="strip" id="spinStrip"></div>
+        </div>
+        <div class="r">
+          <button class="btn" id="spinKeep">Keep it</button>
+          <button class="btn ghost" id="spinAgain">Spin again</button>
+        </div>
+        <div class="r ends">
+          <button class="btn quiet" id="spinSkip">Skip this night</button>
+          <button class="btn quiet" data-close>Stop</button>
         </div>
       </div>
     </dialog>

@@ -36,15 +36,29 @@ describe("nights", () => {
     expect(last()).toEqual({ weeks: { "2026-10-30": DEL } });
   });
 
-  it("fills only empty nights from today on", () => {
+  it("emptyNights lists unplanned nights from today on", () => {
     S.setNight("Fri", "m1");
-    const { empty, filled } = S.fillEmptyNights();
-    expect(empty).toEqual(["Mon", "Tue", "Wed", "Thu"]);
-    expect(filled).toEqual([3, 4, 5, 6]);
-    const plan = S.state.weeks["2026-10-30"].plan;
-    expect(plan.Fri).toBe("m1");
-    expect(plan.Sat).toBeUndefined();
-    expect(Object.keys(last().weeks["2026-10-30"].plan).sort()).toEqual(["Mon", "Thu", "Tue", "Wed"]);
+    S.setNight("Tue", "m2");
+    expect(S.emptyNights()).toEqual(["Mon", "Wed", "Thu"]);
+  });
+
+  it("the wheel prefers meals not had this week or last, and never repeats the last spin", () => {
+    S.replaceState({
+      meals: [meal("m1", "Tacos", ["beef mince"]), meal("m2", "Curry", ["rice"]), meal("m3", "Fried rice", ["rice"])],
+      weeks: { "2026-10-23": { plan: { Sat: "m3" } } },
+    });
+    S.setNight("Fri", "m1");
+    expect(S.spinPool("").map((m) => m.id)).toEqual(["m2"], "m1 is this week, m3 was last week");
+    expect(S.spinPool("rice").map((m) => m.id)).toEqual(["m2"]);
+    expect(S.spinPool("rice", "m2").map((m) => m.id)).toEqual(["m3"], "falls back to last week's rather than repeat");
+    expect(S.spinPool("tofu")).toEqual([]);
+    expect(S.spinPool(["rice", "fried"]).map((m) => m.id)).toEqual(["m3"], "every term has to match");
+    expect(S.spinPool(["rice", "beef"])).toEqual([]);
+    S.setNight("Sat", "m2");
+    expect(S.spinPool("").map((m) => m.id)).toEqual(["m3"], "last week's is fair game once this week is used up");
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    expect(S.spin("").id).toBe("m3");
+    expect(S.spin("tofu")).toBeNull();
   });
 
   it("lastHad reports the most recent past date per meal", () => {
