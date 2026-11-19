@@ -1,9 +1,10 @@
 import { DAYS, DAY_FULL, addDays, fmt, parse, thisWeek, todayStr } from "../dates.js";
 import { $, el, leftoversIcon, moreIcon, nextIcon, outIcon, prevIcon, toast } from "../dom.js";
-import { SPECIAL, viewWeek, setViewWeek, state, wk, mealById, clearWeek, restoreWeek } from "../state.js";
+import { SPECIAL, viewWeek, setViewWeek, state, wk, mealById, clearWeek, restoreWeek, swapNights } from "../state.js";
 import { onRender, render } from "../render.js";
 import { openPicker } from "./picker.js";
 import { openView } from "./view.js";
+import { initDrag } from "./drag.js";
 
 function weekDiff() {
   return Math.round((parse(viewWeek) - parse(thisWeek())) / (7 * 864e5));
@@ -56,6 +57,8 @@ function renderWeek({ flash } = {}) {
           class: cls,
           onclick: () => (m ? openView(m.id, d) : openPicker(d)),
           "aria-label": `${DAY_FULL[i]} ${fmt(date)}: ${what}`,
+          "data-day": d,
+          ...(v ? { "data-has": "" } : {}),
         },
         el(
           "span",
@@ -88,9 +91,26 @@ function clear() {
   });
 }
 
+// Dragging one night onto another swaps them, or moves a dinner to an empty night.
+function drop(from, to) {
+  const moved = !wk().plan[to];
+  const key = viewWeek;
+  if (!swapNights(from, to)) return;
+  render({ flash: [DAYS.indexOf(from), DAYS.indexOf(to)] });
+  toast(moved ? `Moved to ${to}.` : `Swapped ${from} and ${to}.`, {
+    label: "Undo",
+    fn: () => {
+      if (viewWeek !== key) return;
+      swapNights(from, to);
+      render();
+    },
+  });
+}
+
 export function initWeek() {
   onRender(renderNav);
   onRender(renderWeek);
+  initDrag($("days"), drop);
   $("prevWk").append(prevIcon());
   $("nextWk").append(nextIcon());
   $("weekMore").append(moreIcon());

@@ -296,6 +296,24 @@ export function setNight(day, value) {
   else delete w.plan[day];
   save(weekPatch(viewWeek, { plan: { [day]: value || DEL } }));
 }
+// Swap what two nights hold; an empty night swaps too, which moves the other one's dinner there.
+// False when there is nothing to do.
+export function swapNights(a, b) {
+  const plan = wk().plan;
+  const va = plan[a];
+  const vb = plan[b];
+  if (a === b || va === vb) return false;
+  const w = wk(true);
+  for (const [day, v] of [
+    [a, vb],
+    [b, va],
+  ]) {
+    if (v) w.plan[day] = v;
+    else delete w.plan[day];
+  }
+  save(weekPatch(viewWeek, { plan: { [a]: vb || DEL, [b]: va || DEL } }));
+  return true;
+}
 // Returns what was there so the clear can be undone with restoreWeek.
 export function clearWeek(key) {
   const was = state.weeks[key] || null;

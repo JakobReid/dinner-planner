@@ -169,6 +169,30 @@ describe("matchMeals", () => {
   });
 });
 
+describe("swapping nights", () => {
+  it("swaps two planned nights in one patch", () => {
+    S.setNight("Mon", "m1");
+    S.setNight("Wed", "out");
+    expect(S.swapNights("Mon", "Wed")).toBe(true);
+    expect(S.state.weeks["2026-10-30"].plan).toEqual({ Mon: "out", Wed: "m1" });
+    expect(last()).toEqual({ weeks: { "2026-10-30": { plan: { Mon: "out", Wed: "m1" } } } });
+  });
+
+  it("moves a dinner onto an empty night and clears where it was", () => {
+    S.setNight("Mon", "m1");
+    expect(S.swapNights("Mon", "Fri")).toBe(true);
+    expect(S.state.weeks["2026-10-30"].plan).toEqual({ Fri: "m1" });
+    expect(last().weeks["2026-10-30"].plan.Fri).toBe("m1");
+    expect(Object.keys(last().weeks["2026-10-30"].plan)).toEqual(["Mon", "Fri"]);
+  });
+
+  it("does nothing for the same night or two empty ones", () => {
+    expect(S.swapNights("Mon", "Mon")).toBe(false);
+    expect(S.swapNights("Mon", "Tue")).toBe(false);
+    expect(S.state.weeks).toEqual({});
+  });
+});
+
 describe("undo and already-have", () => {
   it("a cleared week comes back whole with restoreWeek", () => {
     S.setNight("Mon", "m1");

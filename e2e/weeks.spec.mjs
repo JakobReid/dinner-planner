@@ -72,6 +72,60 @@ export const tests = {
     assert.equal(await pg.locator("#wkNow").isDisabled(), true);
     await ctx.close();
   },
+  "weeks: drag a dinner onto another night to move or swap it": async (browser, url) => {
+    const { pg, ctx, errors } = await open(browser, url);
+    await pg.click("#nextWk");
+    const day = (d) => pg.locator(`#days .day[data-day="${d}"]`);
+    const name = (d) => day(d).locator(".m").textContent();
+    for (const [d, n] of [
+      ["Fri", 0],
+      ["Sat", 1],
+    ]) {
+      await day(d).click();
+      await pg.locator("#pickList button[data-meal]").nth(n).click();
+      await pause(100);
+    }
+    const [fri, sat] = [await name("Fri"), await name("Sat")];
+    const drag = async (from, to) => {
+      const a = await day(from).boundingBox();
+      const b = await day(to).boundingBox();
+      await pg.mouse.move(a.x + 150, a.y + a.height / 2);
+      await pg.mouse.down();
+      await pg.mouse.move(a.x + 150, a.y + a.height / 2 + 20, { steps: 3 });
+      await pg.mouse.move(b.x + 150, b.y + b.height / 2, { steps: 6 });
+    };
+    await drag("Fri", "Mon");
+    assert.equal(await pg.locator(".dragghost").textContent(), fri, "the meal follows the pointer");
+    assert.equal(await day("Mon").evaluate((r) => r.classList.contains("drop")), true, "target night is marked");
+    await pg.mouse.up();
+    await pause(100);
+    assert.equal(await pg.locator(".dragghost").count(), 0);
+    assert.equal(await pg.locator("dialog[open]").count(), 0, "letting go doesn't open the night");
+    assert.deepEqual([await name("Fri"), await name("Mon")], ["", fri], "moved to the empty night");
+    assert.match(await pg.textContent(".toast"), /Moved to Mon/);
+    await drag("Mon", "Sat");
+    await pg.mouse.up();
+    await pause(100);
+    assert.deepEqual([await name("Mon"), await name("Sat")], [sat, fri], "two planned nights swap");
+    const plan = await pg.evaluate(
+      (k) => JSON.parse(localStorage.getItem("dinner-planner-v1")).weeks[k].plan,
+      addDays(thisWeek(), 7),
+    );
+    assert.deepEqual(Object.keys(plan).sort(), ["Mon", "Sat"], "saved");
+    await pg.locator(".toast button", { hasText: "Undo" }).click();
+    await pause(100);
+    assert.deepEqual([await name("Mon"), await name("Sat")], [fri, sat], "undo swaps them back");
+    // an empty night can't be picked up, and a plain click still opens the night
+    await drag("Tue", "Wed");
+    assert.equal(await pg.locator(".dragghost").count(), 0);
+    await pg.mouse.up();
+    await pg.keyboard.press("Escape");
+    await pause(100);
+    await day("Mon").click();
+    assert.equal(await pg.locator("#viewDlg[open]").count(), 1, "a click still opens the meal");
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  },
   "weeks: spin the wheel fills empty nights one at a time": async (browser, url) => {
     const { pg, ctx, errors } = await open(browser, url);
     await pg.click("#nextWk");
