@@ -28,14 +28,8 @@ export const tests = {
     assert.equal(await pg.textContent("#mealTitle"), "Add a meal");
     assert.equal(await pg.inputValue("#mName"), "");
     await pg.fill("#mName", "Fish and chips");
-    // typing in the last row adds the next; the old "maybe" prefix still marks a row optional
-    const row = (n) => pg.locator("#mIngRows .ingrow").nth(n);
-    await row(0).locator(".ing").fill("Fish");
-    await row(1).locator(".ing").fill("Maybe Tartare Sauce");
-    await row(2).locator(".ing").fill("  POTATOES ");
-    await row(3).locator(".ing").fill("Lemon");
-    await row(3).locator(".optl").click();
-    assert.equal(await pg.locator("#mIngRows .ingrow").count(), 5, "a blank row waits at the end");
+    // one ingredient per line; a line starting with "maybe" is optional
+    await pg.fill("#mIng", "Fish\nMaybe Tartare Sauce\n  POTATOES \n\nmaybe some lemon");
     await pg.click("#mealForm button[type=submit]");
     await pause(150);
     assert.equal(await pg.locator("dialog[open]").count(), 0, "both sheets closed");
@@ -47,12 +41,10 @@ export const tests = {
       { name: "tartare sauce", optional: true },
       { name: "lemon", optional: true },
     ]);
-    // existing optional ingredients come back as toggled rows, not "maybe" text
+    // editing shows them back a line each, optional ones marked "maybe"
     await pg.click("#t-meals");
     await pg.locator("#mealList .meal", { hasText: "Fish and chips" }).click();
-    assert.equal(await row(2).locator(".ing").inputValue(), "tartare sauce");
-    assert.equal(await row(2).locator(".optl input").isChecked(), true);
-    assert.equal(await row(0).locator(".optl input").isChecked(), false);
+    assert.equal(await pg.inputValue("#mIng"), "fish\npotatoes\nmaybe tartare sauce\nmaybe lemon");
     assert.deepEqual(errors, []);
     await ctx.close();
   },

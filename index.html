@@ -210,11 +210,10 @@
         </div>
         <div class="sheet-body">
           <label class="f">Name<input id="mName" required autocomplete="off" /></label>
-          <div class="f" role="group" aria-labelledby="mIngLabel">
-            <span class="flabel" id="mIngLabel">Ingredients</span>
-            <span class="hint">One per row. Mark anything you can skip as optional.</span>
-            <div id="mIngRows"></div>
-          </div>
+          <label class="f"
+            >Ingredients<span class="hint">One per line. Start a line with “maybe” if it’s optional.</span
+            ><textarea id="mIng" rows="6" placeholder="e.g. chicken thigh&#10;rice&#10;maybe coriander"></textarea>
+          </label>
           <label class="f"
             >Notes<span class="hint">Method or tips (optional)</span
             ><textarea id="mNotes" rows="3" placeholder="e.g. 200°C for 25 minutes. Good with rice."></textarea>

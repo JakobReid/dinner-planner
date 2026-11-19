@@ -19,9 +19,8 @@ async function audit(pg) {
       })
       .map((e) => e.tagName + "." + e.className);
     // every control is a 44px target; the small pills count their invisible padding (::after)
-    const small = [...scope.querySelectorAll("button,select,summary,input,.optl")]
+    const small = [...scope.querySelectorAll("button,select,summary,input")]
       .filter((e) => {
-        if (e.closest(".optl") && e.tagName === "INPUT") return false; // the pill is the target
         if (e.type === "checkbox" && e.labels.length) e = e.labels[0]; // the label row is the target
         const b = e.getBoundingClientRect();
         const grow = e.matches(".have,.tag") ? 12 : 0;

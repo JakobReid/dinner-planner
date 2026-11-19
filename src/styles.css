@@ -330,6 +330,7 @@ body.dragging .day {
   z-index: 20;
   max-width: 70vw;
   padding: 6px 12px;
+  border: 2px solid var(--ink); /* the shadow alone is lost on the dark theme */
   border-radius: 6px;
   background: var(--surface);
   color: var(--ink);
@@ -1052,54 +1053,8 @@ dialog.sheet::backdrop {
   resize: vertical;
   min-height: 4.5em;
 }
-#mIngRows {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 2px;
-}
-.ingrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.ingrow .ing {
-  flex: 1;
-  min-width: 0;
-}
-/* a tick box dressed as a pill: dashed when off, filled when on */
-.optl {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px dashed var(--muted);
-  border-radius: 99px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.optl input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.optl:has(input:checked) {
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.optl:has(input:focus-visible) {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+#mIng {
+  min-height: 9em;
 }
 #mDel {
   align-self: flex-start;
