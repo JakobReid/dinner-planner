@@ -6,3 +6,4 @@ dist-test/
 .firebase/
 .DS_Store
 *-debug.log
+screenshots/

@@ -34,13 +34,16 @@ export const tests = {
     await pg.locator("#pickActs button.alt", { hasText: "Leftovers" }).click();
     await pause(100);
     const migrated = await pg.evaluate(() => JSON.parse(localStorage.getItem("dinner-planner-v1")).weeks);
-    assert.deepEqual(migrated["2026-10-23"], {
-      plan: { Mon: "a", Thu: "b" },
-      checked: { apple: true },
-      extras: [{ id: "x", name: "Milk", done: false }],
-    });
-    assert.deepEqual(migrated["2026-10-30"].plan, { Sat: "a", Sun: "b", Tue: "b", Thu: "leftovers" });
-    assert.deepEqual(migrated["2026-11-06"].plan, { Fri: "a" });
+    // the leftovers night lands in whichever week the test runs in, so add it to that one
+    const plans = {
+      "2026-10-23": { Mon: "a", Thu: "b" },
+      "2026-10-30": { Sat: "a", Sun: "b", Tue: "b" },
+      "2026-11-06": { Fri: "a" },
+    };
+    plans[thisWeek()] = { ...plans[thisWeek()], Thu: "leftovers" };
+    for (const [wk, plan] of Object.entries(plans)) assert.deepEqual(migrated[wk].plan, plan, wk);
+    assert.deepEqual(migrated["2026-10-23"].checked, { apple: true });
+    assert.deepEqual(migrated["2026-10-23"].extras, [{ id: "x", name: "Milk", done: false }]);
     assert.ok(!migrated["2026-10-26"] && !migrated["2026-11-02"], "old keys gone");
     void weeks;
     await ctx.close();
