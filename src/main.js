@@ -22,3 +22,24 @@ render();
 initTabs();
 // Firebase is the bulk of the bundle; load it after first paint
 import("./sync.js").then((m) => m.initSync());
+
+// A tab left open, or one the browser restores from its own copy, keeps running the build it
+// first loaded. Whenever the app comes back into view, check for a newer build and reload into it.
+if (import.meta.env.PROD) {
+  const mine = new URL(import.meta.url).pathname;
+  const check = async () => {
+    if (document.visibilityState !== "visible" || document.querySelector("dialog[open]")) return;
+    try {
+      const html = await (await fetch("/index.html", { cache: "no-store" })).text();
+      const live = html.match(/src="(\/assets\/index-[^"]+\.js)"/)?.[1];
+      // once per build, so a copy that refuses to update can't loop
+      if (!live || live === mine || sessionStorage.getItem("reloadedFor") === live) return;
+      sessionStorage.setItem("reloadedFor", live);
+      location.reload();
+    } catch {
+      /* offline or storage off: carry on with this build */
+    }
+  };
+  document.addEventListener("visibilitychange", check);
+  window.addEventListener("pageshow", check);
+}

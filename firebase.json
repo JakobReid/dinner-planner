@@ -2,7 +2,10 @@
   "hosting": {
     "public": "dist",
     "ignore": ["**/.*"],
-    "headers": [{ "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+    "headers": [
+      { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    ]
   },
   "firestore": {
     "rules": "firestore.rules"

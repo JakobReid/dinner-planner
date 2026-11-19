@@ -21,6 +21,17 @@ function setMode(view) {
   $("mEditActs").hidden = view;
   // read-only skips sections with nothing in them
   ["mIng", "mNotes"].forEach((f) => ($(f).closest("label").hidden = view && !$(f).value.trim()));
+  fitText();
+}
+
+// Read-only boxes grow to show every wrapped line; rows alone only counts the line breaks.
+function fitText() {
+  const view = $("mealForm").classList.contains("view");
+  ["mIng", "mNotes"].forEach((f) => {
+    const t = $(f);
+    t.style.height = "";
+    if (view && t.scrollHeight > t.clientHeight) t.style.height = t.scrollHeight + "px";
+  });
 }
 
 // `view` shows an existing meal read-only under its own title, with Change dinner and an Edit toggle.
@@ -36,6 +47,7 @@ export function openMeal(id, { prefill = "", onDone: cb = null, view = null } = 
   $("mDel").hidden = !m;
   setMode(!!view);
   openDialog("mealDlg");
+  fitText(); // again now it's on screen and has a width to wrap to
   if (view) $("mName").blur();
   else $("mName").focus();
 }

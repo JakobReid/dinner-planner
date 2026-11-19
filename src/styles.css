@@ -11,7 +11,6 @@
   --tape: #6aff6c;
   --tape-ink: #111a12;
   --hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
-  --tape-blend: multiply;
   /* "light dark" on the root tells Android Chrome we handle dark ourselves, so its auto-dark
      leaves the page alone (it was inverting the tape to black); the real scheme is set on body */
   color-scheme: light dark;
@@ -31,7 +30,6 @@
   --hot: #f08167;
   --tape: #6aff6c;
   --tape-ink: #0c140d;
-  --tape-blend: normal;
   color-scheme: dark;
 }
 :root[data-theme="dark"] body {
@@ -242,7 +240,8 @@ section {
   font-weight: 500;
   font-style: italic;
 }
-/* today: one strip of masking tape across the day, date and meal name; columns stay put */
+/* today: one strip of masking tape across the day, date and meal name; columns stay put.
+   No blend mode on tape: multiply made it vanish on Android Chrome with the phone in dark mode. */
 .day.today .row,
 .spin .landed .strip span.pick i {
   background:
@@ -252,7 +251,6 @@ section {
   padding: 0.08em 0.45em 0.12em;
   margin: 0 -0.35em;
   transform: rotate(-1.2deg);
-  mix-blend-mode: var(--tape-blend);
   clip-path: polygon(
     0 0,
     100% 0,
@@ -367,7 +365,6 @@ section {
   background:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
     var(--tape);
-  mix-blend-mode: var(--tape-blend);
   transform: rotate(-1.5deg);
   clip-path: polygon(
     0 0,
@@ -1132,7 +1129,8 @@ label.f textarea {
 .tags {
   display: contents;
 }
-.tag {
+/* scoped to the wheel's filter box so it can't restyle the shopping list's "maybe" */
+.tagbox .tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1143,7 +1141,7 @@ label.f textarea {
   font-size: 0.9rem;
   font-weight: 600;
 }
-.tag button {
+.tagbox .tag button {
   width: 20px;
   height: 20px;
   border: 0;
@@ -1153,7 +1151,7 @@ label.f textarea {
   font-size: 1.1rem;
   line-height: 1;
 }
-.tag button:hover {
+.tagbox .tag button:hover {
   background: var(--line);
 }
 .spin .reel {
