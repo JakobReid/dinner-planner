@@ -1,9 +1,10 @@
-// The account sheet behind the avatar in the header: who you are, your lists, and (in the page
-// markup) the theme. Sign-in and sharing only appear when Firebase is configured. The sheet is
-// built on open so a sync echo never wipes what you're typing.
+// The profile tab: who you are, your lists, and (in the page markup) the theme. Its tab button
+// shows your avatar. Sign-in and sharing only appear when Firebase is configured. The tab is
+// built when it is shown so a sync echo never wipes what you're typing.
 import { $, el, editIcon, toast, userIcon } from "../dom.js";
 import { state, setName } from "../state.js";
-import { openDialog, closeDialog, confirmSheet } from "../dialogs.js";
+import { confirmSheet } from "../dialogs.js";
+import { showTab, onTab } from "./tabs.js";
 
 let api = null;
 
@@ -21,32 +22,36 @@ function avatar(node, acct) {
   node.replaceChildren(acct ? (acct.photo ? "" : initials(acct.name)) : userIcon());
 }
 
+const open = () => !$("profile").hidden;
+// once something on the profile tab is done, get out of the way
+const leave = () => showTab("week");
+
 export function initLists(a) {
   api = a;
   renderProfile();
+  if (open()) fillAccount();
 }
 export function initAccount() {
   renderProfile();
-  $("acctBtn").onclick = () => {
-    fillAccount();
-    openDialog("acctDlg");
-  };
+  onTab((t) => t === "profile" && fillAccount());
+  if (open()) fillAccount();
 }
 
 export function renderProfile() {
   const acct = api && api.account();
+  const who = acct ? acct.name : "Guest";
+  const changed = $("acctBtn").dataset.who && $("acctBtn").dataset.who !== who;
   avatar($("acctBtn"), acct);
-  $("acctBtn").dataset.who = acct ? acct.name : "Guest";
-  $("acctBtn").setAttribute(
-    "aria-label",
-    acct ? `Account and settings, signed in as ${acct.name}` : "Account and settings",
-  );
+  $("acctBtn").dataset.who = who;
+  $("t-profile").title = acct ? `Signed in as ${acct.name}` : "";
+  // signed in or out while the tab is showing: it has to say so
+  if (changed && open()) fillAccount();
 }
 
-// Open the account sheet with a reason on top, e.g. a guest landing on an invite link.
+// Show the profile tab with a reason on top, e.g. a guest landing on an invite link.
 export function promptSignIn(lead) {
+  if (!open()) showTab("profile");
   fillAccount(lead);
-  if (!$("acctDlg").open) openDialog("acctDlg");
 }
 
 const busy = async (fn) => {
@@ -114,7 +119,7 @@ function signInBlock(lead) {
             const v = link.value.trim();
             if (!v) return toast("Paste the link from the email first.");
             busy(async () => {
-              if (await api.signInWithLink(email.value.trim(), v)) closeDialog("acctDlg");
+              if (await api.signInWithLink(email.value.trim(), v)) leave();
             });
           },
         },
@@ -126,7 +131,7 @@ function signInBlock(lead) {
     el("p", { class: "muted" }, lead),
     el(
       "button",
-      { class: "btn google", onclick: () => busy(() => api.signInGoogle().then(() => closeDialog("acctDlg"))) },
+      { class: "btn google", onclick: () => busy(() => api.signInGoogle().then(() => leave())) },
       googleMark(),
       "Sign in with Google",
     ),
@@ -169,11 +174,7 @@ function accountBlock(acct) {
       pic,
       el("div", {}, el("strong", {}, acct.name), acct.email ? el("small", {}, acct.email) : null),
     ),
-    el(
-      "button",
-      { class: "btn ghost", onclick: () => busy(() => api.signOutUser().then(() => closeDialog("acctDlg"))) },
-      "Sign out",
-    ),
+    el("button", { class: "btn ghost", onclick: () => busy(() => api.signOutUser().then(() => leave())) }, "Sign out"),
   ];
 }
 
@@ -234,7 +235,7 @@ function listsBlock() {
     const v = newIn.value.trim();
     if (!v) return toast("Name the new list first.");
     busy(async () => {
-      closeDialog("acctDlg");
+      leave();
       await api.createList(v);
     });
   };
@@ -253,7 +254,7 @@ function listsBlock() {
             class: "lrow",
             onclick: () =>
               busy(async () => {
-                closeDialog("acctDlg");
+                leave();
                 await api.switchTo(id);
               }),
           },
@@ -282,7 +283,7 @@ function listsBlock() {
           : "You will lose access to it. The others keep it and can invite you back.",
       ok: members <= 1 ? "Leave and delete" : "Leave list",
     });
-    if (yes) busy(() => api.leaveList().then(() => closeDialog("acctDlg")));
+    if (yes) busy(() => api.leaveList().then(() => leave()));
   };
 
   return [

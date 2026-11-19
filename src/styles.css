@@ -80,7 +80,7 @@ body::before {
   inset: 0 0 auto;
   height: env(safe-area-inset-top, 0px);
   z-index: 10;
-  background: var(--surface);
+  background: var(--bg);
 }
 button,
 input,
@@ -112,48 +112,24 @@ details > * {
 .wrap {
   max-width: 640px;
   margin: 0 auto;
-  /* room at the foot for the tab bar and a toast above it, so neither covers the last control */
-  padding: 0 18px calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 84px);
+  /* room at the foot for the tab bar, so it never covers the last control */
+  padding: 0 18px calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 10px);
+}
+/* while a toast is up there is room for it too, so the page can scroll the last control clear */
+html:has(.toast:popover-open) .wrap {
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 84px);
 }
 
-/* header: title and account button, then the week being viewed */
+/* header: the week being viewed */
 header {
   position: sticky;
   top: env(safe-area-inset-top, 0px);
   z-index: 5;
-  background: var(--surface);
+  background: var(--bg);
   /* span the page gutters too, or tape peeks past the edges as it scrolls under */
   margin: 0 -18px;
-  padding: 14px 18px 10px;
-  /* on a wide screen the white and its bottom line run edge to edge, like the tab bar */
-  box-shadow:
-    0 0 0 100vmax var(--surface),
-    0 1px 0 100vmax var(--line);
-  clip-path: inset(0 -100vmax -1px);
-}
-.titlerow {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-h1 {
-  flex: 1;
-  min-width: 0;
-  font-size: clamp(2rem, 7.5vw, 2.8rem);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  margin: 0;
-}
-/* after the first visit, or once the page scrolls, the title is one line beside the account button */
-.compact h1 {
-  font-size: 1.15rem;
-  line-height: 44px;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  padding: 8px 18px 6px;
+  border-bottom: 1px solid var(--line);
 }
 .avatar {
   width: 44px;
@@ -173,20 +149,39 @@ h1 {
   width: 22px;
   height: 22px;
 }
+/* in the tab bar the avatar stands in for an icon */
+.tabbar .avatar {
+  width: 24px;
+  height: 24px;
+  margin: -1px 0; /* sits on the same line as the 22px icons */
+  font-size: 0.6rem;
+}
+/* no header above the profile tab, so it brings its own headroom */
+#profile {
+  padding-top: 20px;
+}
+.tabbar .avatar .ico {
+  width: 20px;
+  height: 20px;
+}
+.tabbar button:not([aria-selected="true"]) .avatar {
+  color: var(--muted);
+}
 .weeknav {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 8px 0 0;
 }
-/* the label is also the way back to this week; its third line keeps its space when hidden */
+/* the label is also the way back to this week. It is always three lines tall, so the header never
+   changes height; on this week the two lines showing sit in the middle. */
 .wl {
   flex: 1;
   min-width: 0;
-  min-height: 44px;
+  min-height: 3.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   padding: 0 4px;
   background: none;
   border: 0;
@@ -213,7 +208,7 @@ h1 {
   text-underline-offset: 3px;
 }
 .wl:disabled .back {
-  visibility: hidden;
+  display: none;
 }
 .arrow,
 .iconbtn {
@@ -226,6 +221,10 @@ h1 {
   border-radius: 12px;
   background: var(--chip);
   color: var(--ink);
+}
+/* the week arrows are bare: the label between them is the thing to read */
+.arrow {
+  background: none;
 }
 .arrow .ico,
 .iconbtn .ico {
@@ -287,7 +286,7 @@ h1 {
 }
 
 section {
-  padding-top: 16px;
+  padding-top: 8px;
 }
 
 /* week */
@@ -298,7 +297,7 @@ section {
   background: none;
   border: 0;
   border-bottom: 1px solid var(--line);
-  padding: 14px 2px;
+  padding: 10px 2px;
 }
 .day .row {
   display: grid;
@@ -363,7 +362,7 @@ section {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 .more {
   position: relative;
@@ -1435,7 +1434,7 @@ dialog.sheet::backdrop {
 }
 
 .sync {
-  margin: 28px 0 0;
+  margin: 12px 0 0;
   font-size: 0.8rem;
   color: var(--muted);
 }

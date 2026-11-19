@@ -2,7 +2,8 @@ import { open, assert, pause, box } from "./lib.mjs";
 
 export const tests = {
   "sheets: page scroll is frozen underneath and restored after": async (browser, url) => {
-    const { pg, ctx } = await open(browser, url, { viewport: { width: 420, height: 600 } });
+    // a short screen, so the week is long enough to scroll
+    const { pg, ctx } = await open(browser, url, { viewport: { width: 420, height: 380 } });
     await pg.evaluate(() => scrollTo(0, 150));
     await pause(50);
     await pg.locator("#days .day").last().click(); // Playwright may scroll further to reach it
@@ -110,7 +111,7 @@ export const tests = {
     }
     await ctx.close();
   },
-  "settings: theme lives in the account sheet, with System, Light and Dark": async (browser, url) => {
+  "settings: theme lives on the profile tab, with System, Light and Dark": async (browser, url) => {
     const { pg, ctx } = await open(browser, url);
     const theme = () => pg.evaluate(() => document.documentElement.dataset.theme);
     assert.equal(await theme(), undefined, "light by default");
@@ -118,7 +119,7 @@ export const tests = {
     assert.deepEqual(await pg.locator("#themeSeg button").allTextContents(), ["System", "Light", "Dark"]);
     await pg.locator('#themeSeg button[data-theme="dark"]').click();
     assert.equal(await theme(), "dark");
-    await pg.locator("#acctDlg [data-close]").click();
+    await pg.click("#t-week");
     await pg.reload();
     await pg.waitForSelector("#days .day");
     assert.equal(await theme(), "dark", "remembered");
@@ -129,32 +130,53 @@ export const tests = {
     await pause(50);
     assert.equal(await theme(), "dark", "and a dark one, as it changes");
     await pg.reload();
-    await pg.waitForSelector("#days .day");
+    await pg.waitForSelector("#days .day", { state: "attached" }); // reloads onto the profile tab
     assert.equal(await theme(), "dark", "system is remembered too");
     await pg.click("#acctBtn");
     await pg.locator('#themeSeg button[data-theme="light"]').click();
     assert.equal(await theme(), undefined);
     await ctx.close();
   },
-  "header: the big title collapses on scroll and stays compact on later visits": async (browser, url) => {
+  "header: only the week, the same height on any week, and hidden on the profile tab": async (browser, url) => {
     const { pg, ctx } = await open(browser, url, { viewport: { width: 375, height: 500 } });
-    const compact = () => pg.evaluate(() => document.documentElement.classList.contains("compact"));
-    const h1 = () => pg.evaluate(() => document.querySelector("h1").getBoundingClientRect().height);
-    assert.equal(await compact(), false, "large on a first visit");
-    const big = await h1();
-    await pg.mouse.move(180, 300);
-    await pg.mouse.wheel(0, 200);
-    await pause(150);
-    assert.equal(await compact(), true, "collapses once the page scrolls");
-    assert.ok((await h1()) < big, "and takes less room");
-    await pg.reload();
-    await pg.waitForSelector("#days .day");
-    assert.equal(await compact(), true, "compact from the start after the first visit");
     // "Back to this week" has its space reserved, so the header is the same height on any week
     const height = () => pg.evaluate(() => document.querySelector("header").offsetHeight);
     const before = await height();
     await pg.click("#nextWk");
     assert.equal(await height(), before, "no layout shift when the back link appears");
+    // on this week the label sits in the middle of the header, level with the arrows
+    await pg.click("#wkNow");
+    const mid = (q) =>
+      pg
+        .locator(q)
+        .boundingBox()
+        .then((b) => b.y + b.height / 2);
+    const text = await pg.evaluate(() => {
+      const a = document.getElementById("wkLabel").getBoundingClientRect();
+      const b = document.getElementById("sub").getBoundingClientRect();
+      return (a.top + b.bottom) / 2;
+    });
+    assert.ok(Math.abs(text - (await mid("#prevWk"))) < 2, "week label centred on the arrows");
+    await pg.click("#t-profile");
+    assert.equal(await pg.locator("header").isVisible(), false, "no week arrows on the profile tab");
+    assert.equal(await pg.locator("h1").count(), 0, "the title row is gone");
+    await pg.click("#t-shop");
+    assert.equal(await pg.locator("header").isVisible(), true);
+    // a full week with a two-line meal fits a small phone without scrolling
+    await pg.click("#t-week");
+    await pg.setViewportSize({ width: 375, height: 610 });
+    await pg.locator("#days .day").first().click();
+    await pg.locator("#pickList button[data-meal]", { hasText: "Beef mince and sweet potato bowl" }).click();
+    await pause(150);
+    const room = await pg.evaluate(() => {
+      const foot = document.querySelector(".actions").getBoundingClientRect().bottom + scrollY;
+      return {
+        over: document.documentElement.scrollHeight - innerHeight,
+        foot,
+        bar: document.querySelector(".tabbar").getBoundingClientRect().top,
+      };
+    });
+    assert.ok(room.over <= 0 && room.foot <= room.bar, `week fits 375x610: ${JSON.stringify(room)}`);
     await ctx.close();
   },
 };

@@ -45,7 +45,7 @@ const who = (pg) => pg.getAttribute("#acctBtn", "data-who");
 
 // Ask the app for an email link and read it off the auth emulator, as the address the app would open.
 const requestLink = async (pg, email) => {
-  if (!(await pg.locator("#acctDlg[open]").count())) await pg.click("#acctBtn");
+  if (await pg.locator("#profile").isHidden()) await pg.click("#acctBtn");
   await pg.fill("#acctEmail", email);
   await pg.locator("#acctBody button", { hasText: "Email me a link" }).click();
   const { oobCode, oobLink } = await until(async () => {
@@ -87,10 +87,10 @@ export const tests = {
     assert.ok(field.y + field.height <= btn.y && Math.abs(field.width - btn.width) < 2, "stacked");
     await pg.locator("#acctBody button", { hasText: "Email me a link" }).click();
     const toast = await pg.locator(".toast").boundingBox();
-    const sheet = await pg.locator("#acctDlg").boundingBox();
+    const bar = await pg.locator(".tabbar").boundingBox();
     assert.match(await pg.locator(".toast").textContent(), /Enter your email first/);
-    assert.ok(toast.y + toast.height <= sheet.y + 12, "toast sits above the open sheet, off its controls");
-    await pg.locator("#acctDlg [data-close]").click();
+    assert.ok(toast.y + toast.height <= bar.y, "toast sits above the tab bar");
+    await pg.click("#t-week");
     await pg.reload();
     await pg.waitForSelector("#days .day", { state: "attached" });
     assert.equal(await pg.locator("#days .day:nth-child(4) .m.empty").count(), 0, "plan kept on the device");
@@ -125,7 +125,7 @@ export const tests = {
   "sync: a guest on an invite link is asked to sign in, then joins and seeds it": async (browser, url) => {
     const id = code();
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
-    await pg.waitForSelector("#acctDlg[open]");
+    await pg.waitForSelector("#profile:not([hidden])");
     assert.match(await pg.locator("#acctBody").textContent(), /invited/, "says why");
     assert.equal(await getDoc(id), null, "nothing written while a guest");
     await signIn(pg);
@@ -225,7 +225,7 @@ export const tests = {
     await a.pg.click("#inviteBtn");
     await until(async () => (await getDoc(id))?.invites?.[emailB], "invite written, lowercased");
     await a.pg.waitForSelector(`#acctBody .irow:has-text("${emailB}")`);
-    await a.pg.locator("#acctDlg [data-close]").click();
+    await a.pg.click("#t-week");
     const b = await open(browser, url); // no link needed
     await signIn(b.pg, emailB);
     assert.equal(hParam(b.pg), id, "landed straight in the shared list");
@@ -250,7 +250,7 @@ export const tests = {
     assert.match(await who(pg), /^Sam O Neil /, "a display name made from the address, not the address");
     assert.equal(await pg.textContent("#acctBtn"), "SO", "initials on the avatar");
     await pg.click("#acctBtn");
-    assert.equal(await pg.locator("#acctDlg[open]").count(), 1);
+    assert.equal(await pg.locator("#profile").isVisible(), true);
     assert.match(
       await pg.locator("#acctBody .who").textContent(),
       new RegExp(email),
@@ -263,7 +263,7 @@ export const tests = {
     await pg.locator("#acctBody .nameedit input").dispatchEvent("change");
     await until(async () => (await getDoc(id))?.name === "Our place", "rename written");
     assert.match(await pg.locator(".toast").textContent(), /renamed to Our place/, "the rename is confirmed");
-    await pg.locator("#acctDlg [data-close]").click();
+    await pg.click("#t-week");
     await pg.click("#acctBtn");
     assert.equal(await pg.inputValue("#acctBody .nameedit input"), "Our place", "rename shows on reopen");
     await pg.fill("#newListName", "Lake trip");
@@ -302,7 +302,7 @@ export const tests = {
     await synced(pg);
     const email = code() + "@e2e.test";
     const link = await requestLink(pg, email);
-    assert.equal(await pg.locator("#acctDlg[open]").count(), 1, "the sheet stays open after sending");
+    assert.equal(await pg.locator("#profile").isVisible(), true, "the profile tab stays up after sending");
     await pg.waitForSelector("#acctPaste[open]");
     await pg.fill("#acctLink", "https://example.com/not-a-link");
     await pg.locator("#acctBody button", { hasText: "Sign in with this link" }).click();
@@ -313,7 +313,7 @@ export const tests = {
     await signedIn(pg);
     await until(() => hParam(pg), "list code in the url");
     await synced(pg);
-    assert.equal(await pg.locator("#acctDlg[open]").count(), 0, "sheet closes once signed in");
+    assert.equal(await pg.locator("#profile").isVisible(), false, "back to the week once signed in");
     noErrors(errors);
     await ctx.close();
   },

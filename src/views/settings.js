@@ -19,7 +19,7 @@ function paint() {
   if (isDark) document.documentElement.dataset.theme = "dark";
   else delete document.documentElement.dataset.theme;
   // the browser's own bars follow the page
-  document.querySelector('meta[name="theme-color"]').content = isDark ? "#1a251f" : "#ffffff";
+  document.querySelector('meta[name="theme-color"]').content = isDark ? "#111915" : "#eef3ec";
   $("themeSeg")
     .querySelectorAll("button")
     .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.theme === theme)));

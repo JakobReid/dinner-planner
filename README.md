@@ -24,8 +24,9 @@ Checks, or all of them with `npm run check`:
 
 ## Layout
 
-Three tabs in a bar fixed to the foot of the screen (Week, Meals, Shopping) and one avatar button in
-the header that opens the account sheet: sign in or out, your lists, and the theme. Every dialog is a
+Four tabs in a bar fixed to the foot of the screen (Week, Meals, Shopping, Profile). The Profile tab
+shows your avatar and holds sign in or out, your lists, and the theme. The header is just the week
+being viewed. Every dialog is a
 bottom sheet (`src/dialogs.js`) with its actions pinned in a footer, Close or Cancel on the left and
 the main action on the right; drag the head down or tap outside to dismiss. Destructive actions sit
 apart from those and either ask first (`confirmSheet`) or offer Undo in the toast. Toasts sit just
