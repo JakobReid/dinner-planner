@@ -9,6 +9,8 @@ import { initPicker } from "./views/picker.js";
 import { initEditor } from "./views/editor.js";
 import { initSettings } from "./views/settings.js";
 import { initSpin } from "./views/spin.js";
+import { initView } from "./views/view.js";
+import { initAccount } from "./views/lists.js";
 
 initDialogs();
 initWeek(); // registration order is render order: nav, week, meals, shop
@@ -16,6 +18,8 @@ initMeals();
 initShop();
 initPicker();
 initEditor();
+initView();
+initAccount();
 initSettings();
 initSpin();
 render();

@@ -1,8 +1,9 @@
 // Spin the wheel: one empty night at a time, a reel of meal names lands on a pick, and you keep
-// it, spin again or skip. A search narrows the reel to meals with that ingredient.
+// it, spin again or skip. Only empty nights from today on are offered, so nothing already
+// planned is ever overwritten. A filter narrows the reel to meals with that ingredient.
 import { DAYS, DAY_FULL, addDays, fmt } from "../dates.js";
-import { $, el, toast, checkIcon, againIcon, wheelIcon } from "../dom.js";
-import { viewWeek, state, emptyNights, spinPool, spin, setNight } from "../state.js";
+import { $, el, toast } from "../dom.js";
+import { viewWeek, state, emptyNights, spinPool, spinExcluded, spin, setNight } from "../state.js";
 import { render } from "../render.js";
 import { openDialog, closeDialog } from "../dialogs.js";
 
@@ -18,13 +19,16 @@ const REEL = 24; // names that scroll past before the landing one
 const still = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function openSpin() {
-  if (!state.meals.length) return toast("Add a meal or two first.");
+  if (!state.meals.length) return toast("Add a meal first.");
   nights = emptyNights();
-  if (!nights.length) return toast("Every night’s sorted already.");
+  if (!nights.length) return toast("No empty nights left this week.");
   at = 0;
   kept = [];
   tags = [];
   $("spinQ").value = "";
+  $("spinFills").textContent =
+    (nights.length === 1 ? "Fills 1 empty night" : `Fills ${nights.length} empty nights`) +
+    `: ${nights.join(", ")}. Planned nights are not changed.`;
   paintTags();
   openDialog("spinDlg");
   night();
@@ -36,15 +40,10 @@ const terms = () => [...tags, $("spinQ").value.trim().toLowerCase()].filter(Bool
 function paintTags() {
   $("spinTags").replaceChildren(
     ...tags.map((t) =>
-      el(
-        "span",
-        { class: "tag" },
-        t,
-        el("button", { type: "button", "aria-label": `Remove ${t}`, onclick: () => dropTag(t) }, "×"),
-      ),
+      el("button", { type: "button", class: "tag", "aria-label": `Remove ${t}`, onclick: () => dropTag(t) }, `${t} ×`),
     ),
   );
-  $("spinQ").placeholder = tags.length ? "Add another" : "Narrow it down by ingredient";
+  $("spinQ").placeholder = tags.length ? "Add another" : "Filter by ingredient";
 }
 function addTag() {
   const v = $("spinQ").value.trim().toLowerCase();
@@ -67,10 +66,20 @@ function night() {
   go(null);
 }
 
+// Say which matching meals the wheel is leaving out, and why.
+function paintWhy(q) {
+  const out = spinExcluded(q);
+  const shown = out.slice(0, 3).map((x) => `${x.name} (${x.why})`);
+  if (out.length > 3) shown.push(`${out.length - 3} more`);
+  $("spinWhy").hidden = !out.length;
+  $("spinWhy").textContent = out.length ? `Left out: ${shown.join(", ")}.` : "";
+}
+
 // Build a strip that ends on the pick and slide it into view.
 function go(prev) {
   const q = terms();
   pick = spin(q, prev);
+  paintWhy(q);
   const reel = $("spinReel");
   const strip = $("spinStrip");
   const my = ++token;
@@ -82,18 +91,31 @@ function go(prev) {
   if (!pick) {
     reel.classList.add("none");
     strip.replaceChildren(
-      el("span", {}, el("i", {}, q.length ? `Nothing with ${q.join(" and ")} yet.` : "No meals yet.")),
+      el("span", {}, el("i", {}, q.length ? `No meals with ${q.join(" and ")}.` : "No meals yet.")),
     );
     return;
   }
-  // names scroll past, the pick lands on the middle line with a neighbour either side
+  // names scroll past and the pick lands on the middle line. No name sits next to itself, and
+  // the two either side of the pick differ from it and from each other where the pool allows.
   const names = spinPool(q).map((m) => m.name);
-  const any = () => names[Math.floor(Math.random() * names.length)];
+  // a random name avoiding `not`; if that rules everything out, the later exclusions are dropped
+  const anyBut = (...not) => {
+    for (let k = not.length; k >= 0; k--) {
+      const ok = names.filter((x) => !not.slice(0, k).includes(x));
+      if (ok.length) return ok[Math.floor(Math.random() * ok.length)];
+    }
+    return pick.name;
+  };
   const n = names.length > 1 && !still() ? REEL : 1;
-  const items = [];
-  for (let k = 0; k < n - 1; k++) items.push(any());
+  // built outwards from the pick, so its neighbours get first choice of the names
+  const before = [];
+  for (let k = 0; k < n - 1; k++) before.push(anyBut(before.at(-1) ?? pick.name, k === 1 ? pick.name : before.at(-2)));
+  const items = [...before].reverse();
   items.push(pick.name);
-  if (names.length > 1) items.push(any(), any());
+  if (names.length > 1) {
+    const after = anyBut(pick.name, before[0], before[1]);
+    items.push(after, anyBut(after, pick.name, before[0], before[1]));
+  }
   // long names drop a size rather than get cut off
   const cls = (t, k) => [k === n - 1 && "pick", t.length > 22 && "long"].filter(Boolean).join(" ");
   strip.replaceChildren(...items.map((t, k) => el("span", { class: cls(t, k) }, el("i", {}, t))));
@@ -119,13 +141,10 @@ function next() {
   if (at < nights.length) return night();
   closeDialog("spinDlg");
   render({ flash: kept });
-  if (kept.length) toast(kept.length === 1 ? "One night sorted." : `${kept.length} nights sorted.`);
+  if (kept.length) toast(kept.length === 1 ? "1 night planned." : `${kept.length} nights planned.`);
 }
 
 export function initSpin() {
-  $("spinBtn").replaceChildren(wheelIcon(), "Spin the wheel");
-  $("spinKeep").replaceChildren(checkIcon(), "Keep it");
-  $("spinAgain").replaceChildren(againIcon(), "Spin again");
   $("spinBtn").onclick = openSpin;
   $("spinKeep").onclick = () => {
     if (!pick) return;

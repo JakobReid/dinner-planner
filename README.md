@@ -22,6 +22,15 @@ Checks, or all of them with `npm run check`:
 - `npm run test:rules` the security rules against the Firestore emulator (needs Java)
 - `npm run e2e` Playwright in headless Chromium against a device-only build
 
+## Layout
+
+Three tabs in a bar fixed to the foot of the screen (Week, Meals, Shopping) and one avatar button in
+the header that opens the account sheet: sign in or out, your lists, and the theme. Every dialog is a
+bottom sheet (`src/dialogs.js`) with its actions pinned in a footer, Close or Cancel on the left and
+the main action on the right; drag the head down or tap outside to dismiss. Destructive actions sit
+apart from those and either ask first (`confirmSheet`) or offer Undo in the toast. Toasts sit just
+above the tab bar, or above the sheet while one is open.
+
 ## How sync works
 
 One Firestore document per household at `households/{code}`, with a `members` map of the people in it,

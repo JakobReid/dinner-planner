@@ -31,42 +31,88 @@ export const leftoversIcon = () =>
   icon(
     `<svg viewBox="0 0 24 24" ${STROKE}><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M9 3c0 2-1.5 2.5-1.5 4.5M14 3c0 2-1.5 2.5-1.5 4.5"/></svg>`,
   );
-export const shareIcon = () =>
-  icon(
-    `<svg viewBox="0 0 24 24" ${STROKE}><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/></svg>`,
-  );
-export const leaveIcon = () =>
-  icon(
-    `<svg viewBox="0 0 24 24" ${STROKE}><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/><path d="M20 12H9"/><path d="m16 8 4 4-4 4"/></svg>`,
-  );
 export const userIcon = () =>
   icon(`<svg viewBox="0 0 24 24" ${STROKE}><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>`);
-export const mailIcon = () =>
-  icon(
-    `<svg viewBox="0 0 24 24" ${STROKE}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>`,
-  );
-export const checkIcon = () => icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="m5 12 5 5 9-10"/></svg>`);
-export const wheelIcon = () =>
-  icon(
-    `<svg viewBox="0 0 24 24" ${STROKE}><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 3v7M12 14v7M4.2 7.5l6 3.5M13.8 13l6 3.5M4.2 16.5l6-3.5M13.8 11l6-3.5"/></svg>`,
-  );
-export const againIcon = () =>
-  icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>`);
-export const clearIcon = () => icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="M6 6l12 12M18 6 6 18"/></svg>`);
-export const plusIcon = () => icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="M12 5v14M5 12h14"/></svg>`);
 export const editIcon = () =>
   icon(
     `<svg viewBox="0 0 24 24" ${STROKE}><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l3 3"/></svg>`,
   );
 
+export const prevIcon = () => icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="m15 5-7 7 7 7"/></svg>`);
+export const nextIcon = () => icon(`<svg viewBox="0 0 24 24" ${STROKE}><path d="m9 5 7 7-7 7"/></svg>`);
+export const moreIcon = () =>
+  icon(
+    `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`,
+  );
+export const weekIcon = () =>
+  icon(
+    `<svg viewBox="0 0 24 24" ${STROKE}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
+  );
+export const mealsIcon = () =>
+  icon(
+    `<svg viewBox="0 0 24 24" ${STROKE}><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8h6"/></svg>`,
+  );
+export const shopIcon = () =>
+  icon(
+    `<svg viewBox="0 0 24 24" ${STROKE}><path d="M3 4h2.5l2.2 11h10.6L20.5 7H6.4"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>`,
+  );
+
+// One toast at a time. `action` adds a button, e.g. { label: "Undo", fn }. It sits above the tab
+// bar, or at the top of the screen while a sheet is open; as a popover it stays above open dialogs.
 let toastTimer;
-export function toast(msg) {
+export function toast(msg, action) {
   let t = document.querySelector(".toast");
   if (!t) {
-    t = el("div", { class: "toast", role: "status" });
+    t = el("div", { class: "toast", role: "status", popover: "manual" });
     document.body.append(t);
   }
-  t.textContent = msg;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.remove(), 2800);
+  const hide = () => {
+    clearTimeout(toastTimer);
+    try {
+      t.hidePopover();
+    } catch {
+      /* not showing, or no popover support */
+    }
+    t.hidden = true;
+  };
+  hide();
+  t.replaceChildren(el("span", {}, msg));
+  if (action)
+    t.append(
+      el(
+        "button",
+        {
+          type: "button",
+          onclick: () => {
+            hide();
+            action.fn();
+          },
+        },
+        action.label,
+      ),
+    );
+  t.classList.toggle("top", !!document.querySelector("dialog[open]"));
+  t.hidden = false;
+  try {
+    t.showPopover();
+  } catch {
+    /* older browsers show it as a plain fixed element */
+  }
+  toastTimer = setTimeout(hide, action ? 7000 : 3200);
+  if (!t.classList.contains("top")) clearOf(t);
+}
+
+// The page keeps room at its foot for a toast. If one lands on the last control on the page,
+// scroll up just enough to clear it.
+function clearOf(t) {
+  const controls = [...document.querySelectorAll(".wrap :is(button, input, select, summary)")].filter(
+    (c) => c.getClientRects().length,
+  );
+  const last = controls.reduce(
+    (a, c) => (!a || c.getBoundingClientRect().bottom > a.getBoundingClientRect().bottom ? c : a),
+    null,
+  );
+  if (!last) return;
+  const over = last.getBoundingClientRect().bottom - t.getBoundingClientRect().top;
+  if (over > 0 && over < t.offsetHeight + 80) scrollBy({ top: over + 8, behavior: "smooth" });
 }

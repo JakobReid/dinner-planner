@@ -1,6 +1,7 @@
-// "Pick a dinner" dialog for one night: search meals, pick one, or add/edit a meal without leaving.
+// "Pick a dinner" sheet for one night: Eating out and Leftovers as chips at the top, a search,
+// and the meals. A new meal can be added without leaving, and it is picked for the night.
 import { DAYS, DAY_FULL, addDays, fmt } from "../dates.js";
-import { $, el, outIcon, leftoversIcon, clearIcon, plusIcon, editIcon } from "../dom.js";
+import { $, el, outIcon, leftoversIcon } from "../dom.js";
 import { viewWeek, wk, setNight, matchMeals } from "../state.js";
 import { render } from "../render.js";
 import { openDialog, closeDialog } from "../dialogs.js";
@@ -24,76 +25,64 @@ function setDay(d, v) {
   closeDialog("pickDlg");
   render({ flash: [DAYS.indexOf(d)] });
 }
+const addNew = (name) => openMeal(null, { prefill: name, onDone: (id) => id && setDay(pickDay, id) });
 
 function renderPick() {
   const d = pickDay;
-  const box = $("pickList");
-  box.replaceChildren();
   const plan = wk().plan;
   const cur = plan[d];
-  const used = new Set(
+  const chip = (key, icon, label) =>
+    el(
+      "button",
+      { class: "chipbtn" + (cur === key ? " cur" : ""), "data-night": key, onclick: () => setDay(d, key) },
+      icon,
+      label,
+    );
+  $("pickChips").replaceChildren(
+    chip("out", outIcon(), "Eating out"),
+    chip("leftovers", leftoversIcon(), "Leftovers"),
+    cur
+      ? el(
+          "button",
+          { class: "chipbtn remove", id: "pickRemove", onclick: () => setDay(d, null) },
+          "Remove from this night",
+        )
+      : "",
+  );
+
+  const box = $("pickList");
+  box.replaceChildren();
+  const elsewhere = new Set(
     Object.entries(plan)
       .filter(([k]) => k !== d)
       .map(([, v]) => v),
   );
   const raw = $("pickQ").value.trim();
-  const q = raw.toLowerCase();
   const list = matchMeals(raw);
   list.forEach(({ m, hit }) => {
     const notes = [];
     if (hit) notes.push("Has " + hit.join(", "));
-    if (used.has(m.id)) notes.push("Already on another night");
+    if (m.id === cur) notes.push("Planned for this night");
+    else if (elsewhere.has(m.id)) notes.push("Planned another night");
     box.append(
       el(
-        "div",
-        { class: "pr" },
-        el(
-          "button",
-          { class: m.id === cur ? "cur" : "", "data-meal": m.id, onclick: () => setDay(d, m.id) },
-          m.name,
-          notes.length ? el("small", {}, notes.join(". ")) : null,
-        ),
-        el(
-          "button",
-          { class: "edit", "aria-label": `Edit ${m.name}`, onclick: () => openMeal(m.id, { onDone: renderPick }) },
-          editIcon(),
-        ),
+        "button",
+        { class: m.id === cur ? "cur" : "", "data-meal": m.id, onclick: () => setDay(d, m.id) },
+        m.name,
+        notes.length ? el("small", {}, notes.join(" · ")) : null,
       ),
     );
   });
-  if (q && !list.length) box.append(el("p", { class: "nores" }, `No meals match “${raw}”.`));
-
-  // actions sit under the list and stay visible however long it gets
-  const acts = $("pickActs");
-  acts.replaceChildren();
-  const noMatch = q && !list.length;
-  acts.append(
-    el(
-      "button",
-      { class: "alt", onclick: () => openMeal(null, { prefill: noMatch ? raw : "", onDone: (id) => setDay(d, id) }) },
-      plusIcon(),
-      noMatch ? `Add “${raw}” as a new meal` : "Add a new meal",
-    ),
-  );
-  acts.append(
-    el(
-      "button",
-      { class: "alt" + (cur === "out" ? " cur" : ""), onclick: () => setDay(d, "out") },
-      outIcon(),
-      "Eating out",
-    ),
-    el(
-      "button",
-      { class: "alt" + (cur === "leftovers" ? " cur" : ""), onclick: () => setDay(d, "leftovers") },
-      leftoversIcon(),
-      "Leftovers",
-    ),
-  );
-  if (cur)
-    acts.append(el("button", { class: "alt clear", onclick: () => setDay(d, null) }, clearIcon(), "Clear this night"));
+  if (!list.length)
+    box.append(
+      raw
+        ? el("button", { class: "btn ghost nores", onclick: () => addNew(raw) }, `+ Add “${raw}”`)
+        : el("p", { class: "muted" }, "No meals yet. Add one with New meal."),
+    );
 }
 
 export function initPicker() {
+  $("pickNew").onclick = () => addNew("");
   $("pickQ").addEventListener("input", renderPick);
   $("pickQ").addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;

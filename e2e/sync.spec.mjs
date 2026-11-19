@@ -41,12 +41,12 @@ const plan = async (pg, day) => {
 };
 const noErrors = (errors) => assert.deepEqual(errors, [], "console errors");
 const hParam = (pg) => new URL(pg.url()).searchParams.get("h");
-const who = (pg) => pg.locator("#whoName").textContent();
+const who = (pg) => pg.getAttribute("#acctBtn", "data-who");
 
-// Sign in with an email link: ask the app for one, read the code off the auth emulator, open it.
-const signIn = async (pg, email = code() + "@e2e.test") => {
+// Ask the app for an email link and read it off the auth emulator, as the address the app would open.
+const requestLink = async (pg, email) => {
   if (!(await pg.locator("#acctDlg[open]").count())) await pg.click("#acctBtn");
-  await pg.fill("#acctBody input[type=email]", email);
+  await pg.fill("#acctEmail", email);
   await pg.locator("#acctBody button", { hasText: "Email me a link" }).click();
   const { oobCode, oobLink } = await until(async () => {
     const r = await fetch(AUTH + "oobCodes", { headers: { authorization: "Bearer owner" } });
@@ -56,9 +56,15 @@ const signIn = async (pg, email = code() + "@e2e.test") => {
   to.searchParams.set("apiKey", "fake");
   to.searchParams.set("oobCode", oobCode);
   to.searchParams.set("mode", "signIn");
-  await pg.goto(to.toString());
+  return to.toString();
+};
+const signedIn = (pg) => pg.waitForFunction(() => document.getElementById("acctBtn").dataset.who !== "Guest");
+
+// Sign in with an email link: ask for one, then open it.
+const signIn = async (pg, email = code() + "@e2e.test") => {
+  await pg.goto(await requestLink(pg, email));
   await pg.waitForSelector("#days .day", { state: "attached" });
-  await pg.waitForFunction(() => document.getElementById("whoName").textContent !== "Guest");
+  await signedIn(pg);
   await until(() => hParam(pg), "list code in the url");
   await synced(pg);
   return email;
@@ -71,10 +77,20 @@ export const tests = {
     assert.equal(await who(pg), "Guest");
     assert.equal(hParam(pg), null, "no list code for a guest");
     await plan(pg, "Mon");
-    await pg.click("#listsBtn");
-    assert.equal(await pg.locator("#listsBody button", { hasText: "Invite someone" }).count(), 0, "no sharing");
-    await pg.locator("#listsBody button", { hasText: "Sign in" }).click();
-    assert.equal(await pg.locator("#acctDlg[open]").count(), 1, "nudged to the account dialog");
+    await pg.click("#acctBtn");
+    assert.equal(await pg.locator("#inviteBtn, #leaveList, #newListBtn").count(), 0, "no sharing for a guest");
+    assert.equal(await pg.locator("#acctBody button", { hasText: "Sign in with Google" }).count(), 1);
+    // the email field sits above its button, full width, so the placeholder isn't cut short
+    const [field, btn] = await Promise.all(
+      ["#acctEmail", "#acctBody button:text('Email me a link')"].map((q) => pg.locator(q).boundingBox()),
+    );
+    assert.ok(field.y + field.height <= btn.y && Math.abs(field.width - btn.width) < 2, "stacked");
+    await pg.locator("#acctBody button", { hasText: "Email me a link" }).click();
+    const toast = await pg.locator(".toast").boundingBox();
+    const sheet = await pg.locator("#acctDlg").boundingBox();
+    assert.match(await pg.locator(".toast").textContent(), /Enter your email first/);
+    assert.ok(toast.y + toast.height <= sheet.y + 12, "toast sits above the open sheet, off its controls");
+    await pg.locator("#acctDlg [data-close]").click();
     await pg.reload();
     await pg.waitForSelector("#days .day", { state: "attached" });
     assert.equal(await pg.locator("#days .day:nth-child(4) .m.empty").count(), 0, "plan kept on the device");
@@ -136,7 +152,7 @@ export const tests = {
     await synced(pg);
     await pg.click("#acctBtn");
     await pg.locator("#acctBody button", { hasText: "Sign out" }).click();
-    await pg.waitForFunction(() => document.getElementById("whoName").textContent === "Guest");
+    await pg.waitForFunction(() => document.getElementById("acctBtn").dataset.who === "Guest");
     assert.equal(hParam(pg), null);
     assert.equal(await pg.locator("#days .day:nth-child(5) .m.empty").count(), 0, "copy stays on the device");
     noErrors(errors);
@@ -204,12 +220,12 @@ export const tests = {
     await signIn(a.pg);
     await until(async () => (await getDoc(id))?.meals, "seed");
     const emailB = code() + "@e2e.test";
-    await a.pg.click("#listsBtn");
-    a.pg.once("dialog", (d) => d.accept(emailB.toUpperCase()));
-    await a.pg.locator("#listsBody button", { hasText: "Invite someone" }).click();
+    await a.pg.click("#acctBtn");
+    await a.pg.fill("#inviteEmail", emailB.toUpperCase());
+    await a.pg.click("#inviteBtn");
     await until(async () => (await getDoc(id))?.invites?.[emailB], "invite written, lowercased");
-    assert.equal(await a.pg.locator("#listsBody .irow", { hasText: emailB }).count(), 1, "shows in the dialog");
-    await a.pg.locator("#listsDlg [data-close]").click();
+    await a.pg.waitForSelector(`#acctBody .irow:has-text("${emailB}")`);
+    await a.pg.locator("#acctDlg [data-close]").click();
     const b = await open(browser, url); // no link needed
     await signIn(b.pg, emailB);
     assert.equal(hParam(b.pg), id, "landed straight in the shared list");
@@ -229,23 +245,29 @@ export const tests = {
   "lists: rename, new list, switch back, leave": async (browser, url) => {
     const id = code();
     const { pg, ctx, errors } = await open(browser, url + "?h=" + id);
-    const email = await signIn(pg);
+    const email = await signIn(pg, "sam.o-neil42." + code() + "@e2e.test");
     await until(async () => (await getDoc(id))?.meals, "seed");
+    assert.match(await who(pg), /^Sam O Neil /, "a display name made from the address, not the address");
+    assert.equal(await pg.textContent("#acctBtn"), "SO", "initials on the avatar");
     await pg.click("#acctBtn");
     assert.equal(await pg.locator("#acctDlg[open]").count(), 1);
-    assert.match(await pg.locator("#acctBody").textContent(), new RegExp(email), "shows who's signed in");
-    await pg.locator("#acctDlg [data-close]").click();
-    await pg.click("#listsBtn");
-    assert.equal(await pg.locator("#listsDlg[open]").count(), 1);
-    assert.equal(await pg.locator("#listsBody button", { hasText: "Sign in" }).count(), 0, "account kept apart");
-    await pg.fill("#listsBody input.lname", "Our place");
-    await pg.locator("#listsBody input.lname").first().dispatchEvent("change");
+    assert.match(
+      await pg.locator("#acctBody .who").textContent(),
+      new RegExp(email),
+      "the full address, not cut short",
+    );
+    assert.equal(await pg.locator("#acctBody button", { hasText: "Sign in" }).count(), 0, "signed in already");
+    await pg.waitForFunction(() => /only list/.test(document.getElementById("acctBody").textContent));
+    assert.equal(await pg.locator("#leaveList").isDisabled(), true, "can't leave your only list");
+    await pg.fill("#acctBody .nameedit input", "Our place");
+    await pg.locator("#acctBody .nameedit input").dispatchEvent("change");
     await until(async () => (await getDoc(id))?.name === "Our place", "rename written");
-    await pg.locator("#listsDlg [data-close]").click();
-    await pg.click("#listsBtn");
-    assert.equal(await pg.inputValue("#listsBody input.lname"), "Our place", "rename shows on reopen");
-    pg.once("dialog", (d) => d.accept("Lake trip"));
-    await pg.locator("#listsBody button", { hasText: "New list" }).click();
+    assert.match(await pg.locator(".toast").textContent(), /renamed to Our place/, "the rename is confirmed");
+    await pg.locator("#acctDlg [data-close]").click();
+    await pg.click("#acctBtn");
+    assert.equal(await pg.inputValue("#acctBody .nameedit input"), "Our place", "rename shows on reopen");
+    await pg.fill("#newListName", "Lake trip");
+    await pg.click("#newListBtn");
     const trip = await until(async () => {
       const c = new URL(pg.url()).searchParams.get("h");
       return c !== id ? c : null;
@@ -253,19 +275,46 @@ export const tests = {
     await synced(pg);
     assert.equal(await pg.locator("#days .day .m:not(.empty)").count(), 0, "new list starts empty");
     assert.equal(await pg.locator("#mealList .meal").count(), 0);
-    await pg.click("#listsBtn");
-    await pg.locator("#listsBody .lrow", { hasText: "Our place" }).click();
+    await pg.click("#acctBtn");
+    await pg.locator("#acctBody .lrow", { hasText: "Our place" }).click();
     await until(async () => new URL(pg.url()).searchParams.get("h") === id, "switched back");
     await until(
       async () => (await pg.locator("#mealList .meal").count()) === 8,
       "back to the first list with its meals",
     );
-    await pg.click("#listsBtn");
-    pg.once("dialog", (d) => d.accept());
-    await pg.locator("#listsBody button", { hasText: "Leave" }).click();
+    await pg.click("#acctBtn");
+    await pg.waitForFunction(() => !document.getElementById("leaveList").disabled);
+    assert.match(await pg.locator("#acctBody").textContent(), /Leaving deletes it/, "says what leaving does");
+    await pg.click("#leaveList");
+    assert.equal(await pg.textContent("#confirmTitle"), "Leave Our place?");
+    await pg.locator("#confirmDlg [data-close]").click();
+    assert.ok(await getDoc(id), "cancel leaves it alone");
+    await pg.click("#leaveList");
+    await pg.click("#confirmOk");
     await until(async () => new URL(pg.url()).searchParams.get("h") === trip, "left to the other list");
     await until(async () => (await getDoc(id)) === null, "last member out deletes the list");
     assert.deepEqual(errors, []);
+    await ctx.close();
+  },
+
+  "sign-in: the emailed link can be pasted into the app instead of opened": async (browser, url) => {
+    const { pg, ctx, errors } = await open(browser, url);
+    await synced(pg);
+    const email = code() + "@e2e.test";
+    const link = await requestLink(pg, email);
+    assert.equal(await pg.locator("#acctDlg[open]").count(), 1, "the sheet stays open after sending");
+    await pg.waitForSelector("#acctPaste[open]");
+    await pg.fill("#acctLink", "https://example.com/not-a-link");
+    await pg.locator("#acctBody button", { hasText: "Sign in with this link" }).click();
+    await pg.waitForFunction(() => /isn’t a sign-in link/.test(document.querySelector(".toast").textContent));
+    assert.equal(await who(pg), "Guest");
+    await pg.fill("#acctLink", link);
+    await pg.locator("#acctBody button", { hasText: "Sign in with this link" }).click();
+    await signedIn(pg);
+    await until(() => hParam(pg), "list code in the url");
+    await synced(pg);
+    assert.equal(await pg.locator("#acctDlg[open]").count(), 0, "sheet closes once signed in");
+    noErrors(errors);
     await ctx.close();
   },
 

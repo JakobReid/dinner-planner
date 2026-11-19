@@ -168,3 +168,54 @@ describe("matchMeals", () => {
     expect(S.matchMeals("zzz")).toEqual([]);
   });
 });
+
+describe("undo and already-have", () => {
+  it("a cleared week comes back whole with restoreWeek", () => {
+    S.setNight("Mon", "m1");
+    S.tick("rice", true);
+    S.addExtra("Milk");
+    const before = JSON.parse(JSON.stringify(S.state.weeks["2026-10-30"]));
+    const was = S.clearWeek("2026-10-30");
+    expect(S.state.weeks).toEqual({});
+    S.restoreWeek("2026-10-30", was);
+    expect(S.state.weeks["2026-10-30"]).toEqual(before);
+    expect(last()).toEqual({ weeks: { "2026-10-30": before } });
+  });
+
+  it("clearing an empty week gives nothing to restore", () => {
+    expect(S.clearWeek("2026-10-30")).toBe(null);
+    S.restoreWeek("2026-10-30", null);
+    expect(S.state.weeks).toEqual({});
+  });
+
+  it("have marks are per week, patch one field and vanish with the last one", () => {
+    S.setNight("Mon", "m1");
+    S.setHave("lettuce", true);
+    expect(S.state.weeks["2026-10-30"].have).toEqual({ lettuce: true });
+    expect(last()).toEqual({ weeks: { "2026-10-30": { have: { lettuce: true } } } });
+    S.setHave("lettuce", false);
+    expect("have" in S.state.weeks["2026-10-30"]).toBe(false);
+    expect(last()).toEqual({ weeks: { "2026-10-30": { have: { lettuce: DEL } } } });
+  });
+
+  it("a week holding only a have mark is kept, and survives normalise", () => {
+    S.setHave("rice", true);
+    expect(S.state.weeks["2026-10-30"].have).toEqual({ rice: true });
+    expect(S.normalise(S.state).weeks["2026-10-30"].have).toEqual({ rice: true });
+    S.setHave("rice", false);
+    expect(S.state.weeks).toEqual({});
+  });
+
+  it("the wheel says which matching meals it is leaving out, and why", () => {
+    S.replaceState({ meals: [meal("m1", "Tacos"), meal("m2", "Curry"), meal("m3", "Pasta"), meal("m4", "Soup")] });
+    S.setViewWeek("2026-10-23");
+    S.setNight("Mon", "m2");
+    S.setViewWeek("2026-10-30");
+    S.setNight("Fri", "m1");
+    expect(S.spinExcluded([])).toEqual([
+      { name: "Curry", why: "had last week" },
+      { name: "Tacos", why: "planned this week" },
+    ]);
+    expect(S.spinExcluded(["pasta"])).toEqual([]);
+  });
+});

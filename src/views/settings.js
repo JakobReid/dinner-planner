@@ -1,34 +1,45 @@
-// Settings sheet off the footer cog. Light is the default; dark is remembered on this device.
+// Theme: System, Light or Dark, remembered on this device. With nothing saved the app is light,
+// as it always was; "system" follows the phone and keeps following it if the phone changes.
 import { $ } from "../dom.js";
-import { openDialog } from "../dialogs.js";
 
-const current = () => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+const dark = matchMedia("(prefers-color-scheme: dark)");
 
-function apply(theme) {
-  if (theme === "dark") document.documentElement.dataset.theme = "dark";
-  else delete document.documentElement.dataset.theme;
+function saved() {
   try {
-    if (theme === "dark") localStorage.setItem("theme", "dark");
-    else localStorage.removeItem("theme");
+    const t = localStorage.getItem("theme");
+    return t === "dark" || t === "system" ? t : "light";
+  } catch {
+    return "light";
+  }
+}
+
+function paint() {
+  const theme = saved();
+  const isDark = theme === "dark" || (theme === "system" && dark.matches);
+  if (isDark) document.documentElement.dataset.theme = "dark";
+  else delete document.documentElement.dataset.theme;
+  // the browser's own bars follow the page
+  document.querySelector('meta[name="theme-color"]').content = isDark ? "#1a251f" : "#ffffff";
+  $("themeSeg")
+    .querySelectorAll("button")
+    .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.theme === theme)));
+}
+
+function choose(theme) {
+  try {
+    if (theme === "light") localStorage.removeItem("theme");
+    else localStorage.setItem("theme", theme);
   } catch {
     /* storage off */
   }
   paint();
 }
 
-function paint() {
-  $("themeSeg")
-    .querySelectorAll("button")
-    .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.theme === current())));
-}
-
 export function initSettings() {
   $("themeSeg").onclick = (e) => {
     const b = e.target.closest("button[data-theme]");
-    if (b) apply(b.dataset.theme);
+    if (b) choose(b.dataset.theme);
   };
-  $("settingsBtn").onclick = () => {
-    paint();
-    openDialog("settingsDlg");
-  };
+  dark.addEventListener("change", paint);
+  paint();
 }

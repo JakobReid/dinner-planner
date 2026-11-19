@@ -1,8 +1,10 @@
-import { fmt, todayStr } from "../dates.js";
-import { $, el, plusIcon } from "../dom.js";
-import { state, wk, lastHad, matchMeals } from "../state.js";
+import { DAYS, addDays, fmt, todayStr } from "../dates.js";
+import { $, el } from "../dom.js";
+import { state, viewWeek, wk, lastHad, matchMeals } from "../state.js";
 import { onRender } from "../render.js";
 import { openMeal } from "./editor.js";
+
+const addNew = (name) => openMeal(null, { prefill: name, onDone: () => ($("mealQ").value = "") });
 
 function renderMeals() {
   const box = $("mealList");
@@ -11,19 +13,24 @@ function renderMeals() {
     box.append(el("div", { class: "empty-state" }, "No meals yet. Add the dinners you make most often."));
     return;
   }
-  const counts = {};
-  Object.values(wk().plan).forEach((id) => (counts[id] = (counts[id] || 0) + 1));
+  const plan = wk().plan;
   const last = lastHad();
   const today = todayStr();
   const raw = $("mealQ").value.trim();
   const list = matchMeals(raw);
-  if (!list.length) box.append(el("p", { class: "nores" }, `No meals match “${raw}”.`));
+  // a search that found nothing is probably the name of the meal you're about to add
+  if (!list.length)
+    box.append(el("button", { class: "btn ghost nores", onclick: () => addNew(raw) }, `+ Add “${raw}”`));
   list.forEach(({ m, hit }) => {
+    // short labels: Tonight, Planned Sat, Last had 14 Nov
     const bits = [];
-    if (counts[m.id])
-      bits.push(counts[m.id] === 1 ? "In the week you’re viewing" : `In the week you’re viewing ×${counts[m.id]}`);
-    if (last[m.id]) bits.push(last[m.id] === today ? "Having it tonight" : `Last had ${fmt(last[m.id])}`);
-    if (hit) bits.unshift("Has " + hit.join(", "));
+    if (hit) bits.push("Has " + hit.join(", "));
+    const nights = DAYS.filter((d) => plan[d] === m.id);
+    const tonight = nights.some((d) => addDays(viewWeek, DAYS.indexOf(d)) === today);
+    const others = nights.filter((d) => addDays(viewWeek, DAYS.indexOf(d)) !== today);
+    if (tonight) bits.push("Tonight");
+    if (others.length) bits.push("Planned " + others.join(", "));
+    if (last[m.id] && last[m.id] !== today) bits.push(`Last had ${fmt(last[m.id])}`);
     box.append(
       el(
         "button",
@@ -35,11 +42,11 @@ function renderMeals() {
               { class: "ings" },
               m.ingredients.flatMap((x, i) => [
                 i ? ", " : "",
-                x.optional ? el("span", { class: "opt" }, `maybe ${x.name}`) : x.name,
+                x.optional ? el("span", { class: "opt" }, `${x.name} (optional)`) : x.name,
               ]),
             )
           : null,
-        bits.length ? el("div", { class: "uses" }, bits.join(". ")) : null,
+        bits.length ? el("div", { class: "uses" }, bits.join(" · ")) : null,
       ),
     );
   });
@@ -47,9 +54,6 @@ function renderMeals() {
 
 export function initMeals() {
   onRender(renderMeals);
-  // a search that found nothing is probably the name of the meal you're about to add
-  $("addMeal").replaceChildren(plusIcon(), "Add a meal");
-  $("addMeal").onclick = () =>
-    openMeal(null, { prefill: $("mealQ").value.trim(), onDone: () => ($("mealQ").value = "") });
+  $("addMeal").onclick = () => addNew($("mealQ").value.trim());
   $("mealQ").oninput = renderMeals;
 }

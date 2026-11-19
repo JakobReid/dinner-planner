@@ -54,7 +54,7 @@ let current = null; // household code in use on this device
 let unsub = null;
 let user = { households: {}, current: null };
 
-// Footer line: silent when all is well, a short note when saving, offline or local-only.
+// Status line under the page: silent when all is well, a short note when saving, offline or local-only.
 const status = (t, state = t ? "warn" : "ok") => {
   $("sync").textContent = t;
   $("sync").dataset.state = state;
@@ -106,7 +106,7 @@ const toFields = (v) => {
 
 const hhRef = (id) => doc(db, "households", id);
 const userRef = () => doc(db, "users", uid);
-const saveFail = () => toast("Couldn’t save to the shared plan. Changes are kept on this device.");
+const saveFail = () => toast("Couldn’t save to the shared list. Changes are kept on this device.");
 const write = (ref, data) => setDoc(ref, toFields(data), { merge: true });
 const saveUser = (patch) => write(userRef(), patch).catch(() => {});
 
@@ -202,7 +202,7 @@ function subscribe() {
         status("Saving…", "busy");
         return;
       }
-      status(fromCache ? "Offline copy. Changes sync when you’re back online." : "");
+      status(fromCache ? "Offline. Changes will sync when you’re back online." : "");
       const data = snap.exists() ? snap.data() : {};
       // a document with nothing in it yet (joined by a fresh link) gets this device's meals
       if (!("meals" in data) && !("weeks" in data) && !("aisles" in data)) {
@@ -214,11 +214,20 @@ function subscribe() {
       // older documents kept meals as an array; the rules now want the map
       if (Array.isArray(data.meals)) write(ref, { meals: toDoc(state).meals }).catch(saveFail);
     },
-    () => status("Couldn’t reach this list. Saving on this device for now."),
+    () => status("Couldn’t reach this list. Changes are saved on this device."),
   );
 }
 
 /* ---------- lists ---------- */
+
+// Email sign-ins have no display name, so make one from the address: jo.smith@… becomes Jo Smith.
+export function nameFromEmail(email) {
+  const words = (email || "")
+    .split("@")[0]
+    .split(/[^a-zA-Z]+/)
+    .filter(Boolean);
+  return words.map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ") || "Signed in";
+}
 
 const api = {
   get current() {
@@ -230,7 +239,7 @@ const api = {
   account() {
     const u = auth && auth.currentUser;
     if (!u) return null;
-    return { email: u.email || "", name: u.displayName || u.email || "Signed in", photo: u.photoURL || "" };
+    return { email: u.email || "", name: u.displayName || nameFromEmail(u.email), photo: u.photoURL || "" };
   },
   // Names of your lists, read live so renames by others show up; lists you can't read any more drop out.
   async names() {
@@ -296,7 +305,7 @@ const api = {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      toast("Signed in. Your lists now follow you to any device.");
+      toast("Signed in. Your lists are synced.");
     } catch (e) {
       if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
         await signInWithRedirect(auth, provider);
@@ -312,9 +321,28 @@ const api = {
     try {
       await sendSignInLinkToEmail(auth, email, { url: u.toString(), handleCodeInApp: true });
       local.set("emailForSignIn", email);
-      toast(`Sign-in link sent to ${email}. Open it on this device.`);
+      toast("Sign-in link sent. Open it on this device.");
+      return true;
     } catch {
       toast("Couldn’t send the link. Check the address and try again.");
+      return false;
+    }
+  },
+  // For when the emailed link opens somewhere else (an iOS home-screen app can't receive it):
+  // the link itself is pasted into the app and finishes the same sign-in here.
+  async signInWithLink(email, link) {
+    const who = email || local.get("emailForSignIn");
+    if (!who) return (toast("Enter the email address the link was sent to."), false);
+    if (!isSignInWithEmailLink(auth, link))
+      return (toast("That isn’t a sign-in link. Copy the whole link from the email."), false);
+    try {
+      await signInWithEmailLink(auth, who, link);
+      local.set("emailForSignIn", null);
+      toast("Signed in. Your lists are synced.");
+      return true;
+    } catch {
+      toast("That sign-in link didn’t work. Ask for a new one.");
+      return false;
     }
   },
   async signOutUser() {
@@ -333,7 +361,7 @@ async function finishSignIn() {
   if (!email) return;
   try {
     await signInWithEmailLink(auth, email, location.href);
-    toast("Signed in. Your lists now follow you to any device.");
+    toast("Signed in. Your lists are synced.");
   } catch {
     toast("That sign-in link didn’t work. Ask for a new one.");
   }
@@ -367,10 +395,10 @@ export async function initSync() {
         // a guest opening an invite link: the code stays in the URL and is picked up after sign-in
         if (urlCode()) promptSignIn("You’ve been invited to a list. Sign in to join it.");
       } else if (u.uid !== uid)
-        attach(u).catch(() => status("Couldn’t reach this list. Saving on this device for now."));
+        attach(u).catch(() => status("Couldn’t reach this list. Changes are saved on this device."));
       renderProfile();
     });
   } catch {
-    status("Couldn’t reach the shared plan. Saving on this device for now.");
+    status("Couldn’t reach your lists. Changes are saved on this device.");
   }
 }

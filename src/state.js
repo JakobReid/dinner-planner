@@ -130,6 +130,9 @@ export function normalise(input) {
     w.plan = isMap(w.plan) ? w.plan : {};
     w.checked = isMap(w.checked) ? w.checked : {};
     w.extras = Array.isArray(w.extras) ? w.extras : [];
+    // "already have it" marks, only present once something has been marked
+    if (isMap(w.have) && Object.keys(w.have).length) w.have = { ...w.have };
+    else delete w.have;
     s.weeks[k] = w;
   }
 
@@ -155,6 +158,7 @@ export function normalise(input) {
     const nk = weekStartOf(parse(k));
     const nw = s.weeks[nk] || (s.weeks[nk] = blankWeek());
     Object.assign(nw.checked, w.checked);
+    if (w.have) nw.have = { ...nw.have, ...w.have };
     nw.extras.push(...w.extras);
   }
   return { name: s.name, members: s.members, invites: s.invites, meals: s.meals, weeks: s.weeks, aisles: s.aisles };
@@ -211,7 +215,8 @@ export function save(patch) {
 // A week with nothing in it is dropped from state; the patch removes it from the document.
 function weekPatch(key, change) {
   const w = state.weeks[key];
-  if (w && !Object.keys(w.plan).length && !w.extras.length && !Object.keys(w.checked).length) {
+  const marks = w ? Object.keys(w.checked).length + Object.keys(w.have || {}).length : 0;
+  if (w && !Object.keys(w.plan).length && !w.extras.length && !marks) {
     delete state.weeks[key];
     return { weeks: { [key]: DEL } };
   }
@@ -291,11 +296,18 @@ export function setNight(day, value) {
   else delete w.plan[day];
   save(weekPatch(viewWeek, { plan: { [day]: value || DEL } }));
 }
+// Returns what was there so the clear can be undone with restoreWeek.
 export function clearWeek(key) {
+  const was = state.weeks[key] || null;
   delete state.weeks[key];
   save({ weeks: { [key]: DEL } });
+  return was;
 }
-// Random meals for the empty nights from today on, avoiding this and last week's picks where possible.
+export function restoreWeek(key, week) {
+  if (!week) return;
+  state.weeks[key] = week;
+  save({ weeks: { [key]: week } });
+}
 // Nights from today on with nothing planned, in week order.
 export function emptyNights() {
   const w = wk();
@@ -313,16 +325,28 @@ export function matchAll(terms) {
 }
 // What the wheel can land on: meals matching the terms, preferring ones not had this week or
 // last, and never the one it just showed unless that's all there is.
-export function spinPool(terms, prev) {
+function spinTiers(terms) {
   const all = matchAll(terms);
-  const w = wk();
-  const used = new Set([...Object.values(w.plan), ...Object.values(wk(false, addDays(viewWeek, -7)).plan)]);
-  const tiers = [all.filter((m) => !used.has(m.id)), all.filter((m) => !Object.values(w.plan).includes(m.id)), all];
+  const now = new Set(Object.values(wk().plan));
+  const before = new Set(Object.values(wk(false, addDays(viewWeek, -7)).plan));
+  const tiers = [all.filter((m) => !now.has(m.id) && !before.has(m.id)), all.filter((m) => !now.has(m.id)), all];
+  return { all, now, tiers };
+}
+export function spinPool(terms, prev) {
+  const { tiers } = spinTiers(terms);
   for (const t of tiers) {
     const fresh = t.filter((m) => m.id !== prev);
     if (fresh.length) return fresh;
   }
   return tiers.find((t) => t.length) || [];
+}
+// Matching meals the wheel is leaving out, each with the reason, so the sheet can say why.
+export function spinExcluded(terms) {
+  const { all, now, tiers } = spinTiers(terms);
+  const pool = new Set((tiers.find((t) => t.length) || []).map((m) => m.id));
+  return all
+    .filter((m) => !pool.has(m.id))
+    .map((m) => ({ name: m.name, why: now.has(m.id) ? "planned this week" : "had last week" }));
 }
 export function spin(terms, prev) {
   const pool = spinPool(terms, prev);
@@ -358,6 +382,16 @@ export function tick(key, on) {
   if (on) w.checked[key] = true;
   else delete w.checked[key];
   save(weekPatch(viewWeek, { checked: { [key]: on ? true : DEL } }));
+}
+// "Already have it": the ingredient is needed but doesn't need buying this week.
+export function setHave(key, on) {
+  const w = wk(true);
+  if (on) w.have = { ...w.have, [key]: true };
+  else if (w.have) {
+    delete w.have[key];
+    if (!Object.keys(w.have).length) delete w.have;
+  }
+  save(weekPatch(viewWeek, { have: { [key]: on ? true : DEL } }));
 }
 // Extras are small and per week, so the list is written whole.
 const extrasPatch = () => weekPatch(viewWeek, { extras: wk().extras });

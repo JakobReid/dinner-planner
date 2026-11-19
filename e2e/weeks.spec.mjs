@@ -31,7 +31,7 @@ export const tests = {
     const weeks = await pg.evaluate(() => JSON.parse(localStorage.getItem("dinner-planner-v1")).weeks);
     // page load only reads; a save writes the migrated shape, so trigger one
     await pg.locator("#days .day").last().click();
-    await pg.locator("#pickActs button.alt", { hasText: "Leftovers" }).click();
+    await pg.locator("#pickChips button", { hasText: "Leftovers" }).click();
     await pause(100);
     const migrated = await pg.evaluate(() => JSON.parse(localStorage.getItem("dinner-planner-v1")).weeks);
     // the leftovers night lands in whichever week the test runs in, so add it to that one
@@ -57,10 +57,19 @@ export const tests = {
       await pause(100);
     }
     assert.equal(await pg.locator("#days .day .m:not(.empty)").count(), 3, "three nights of next week planned");
-    pg.once("dialog", (d) => d.accept());
+    assert.equal(await pg.locator("#clearWk").isVisible(), false, "Clear week is tucked in the overflow menu");
+    await pg.click("#weekMore");
+    assert.equal(await pg.textContent("#clearWk"), "Clear week", "same label on every week");
     await pg.click("#clearWk");
     await pause(100);
     assert.equal(await pg.locator("#days .day .m.empty").count(), 7);
+    await pg.locator(".toast button", { hasText: "Undo" }).click();
+    await pause(100);
+    assert.equal(await pg.locator("#days .day .m:not(.empty)").count(), 3, "undo brings the week back");
+    assert.equal(await pg.textContent("#wkBack"), "Back to this week");
+    await pg.click("#wkNow");
+    assert.equal(await pg.textContent("#wkLabel"), "This week");
+    assert.equal(await pg.locator("#wkNow").isDisabled(), true);
     await ctx.close();
   },
   "weeks: spin the wheel fills empty nights one at a time": async (browser, url) => {
@@ -70,9 +79,19 @@ export const tests = {
     assert.equal(await pg.locator("#spinDlg[open]").count(), 1);
     assert.match(await pg.textContent("#spinTitle"), /^Friday/);
     assert.equal(await pg.textContent("#spinStep"), "Night 1 of 7");
+    assert.match(
+      await pg.textContent("#spinFills"),
+      /^Fills 7 empty nights: Fri, Sat, .*Planned nights are not changed/,
+    );
     const landed = () => pg.waitForSelector("#spinReel.landed .strip span.pick i", { timeout: 4000 });
     await landed();
     const first = await pg.textContent("#spinReel .strip span.pick i");
+    const strip = await pg.locator("#spinReel .strip span").allTextContents();
+    assert.ok(
+      strip.every((t, i) => t !== strip[i + 1]),
+      "no meal sits next to itself on the reel",
+    );
+    assert.equal(new Set(strip.slice(-5)).size, 5, "the five lines showing when it lands are all different");
     await pg.locator("#spinAgain").click();
     await landed();
     assert.notEqual(await pg.textContent("#spinReel .strip span.pick i"), first, "spin again moves on");
@@ -80,9 +99,14 @@ export const tests = {
     await pg.waitForSelector("#spinReel:not(.landed)"); // the search is debounced
     await landed();
     await pg.press("#spinQ", "Enter");
-    assert.deepEqual(await pg.locator("#spinTags .tag").allTextContents(), ["rice×"], "committed as a tag");
+    assert.deepEqual(await pg.locator("#spinTags .tag").allTextContents(), ["rice ×"], "committed as a tag");
     assert.equal(await pg.inputValue("#spinQ"), "");
     await landed();
+    const few = await pg.locator("#spinReel .strip span").allTextContents();
+    assert.ok(
+      few.every((t, i) => t !== few[i + 1]),
+      "still no neighbours the same with only a few meals in the mix",
+    );
     const keptName = await pg.textContent("#spinReel .strip span.pick i");
     await pg.locator("#spinKeep").click();
     // nothing is stored until the first save, so check the pick after keeping it
@@ -99,11 +123,11 @@ export const tests = {
     assert.equal(await pg.textContent("#spinStep"), "Night 3 of 7");
     await pg.fill("#spinQ", "tofu");
     await pause(400);
-    assert.match(await pg.textContent("#spinReel .strip"), /Nothing with rice and tofu/, "tags stack");
+    assert.match(await pg.textContent("#spinReel .strip"), /No meals with rice and tofu/, "tags stack");
     assert.equal(await pg.locator("#spinKeep[disabled]").count(), 1);
-    await pg.locator("#spinTags .tag button").click();
+    await pg.locator("#spinTags .tag").click();
     assert.equal(await pg.locator("#spinTags .tag").count(), 0, "tag removed");
-    assert.match(await pg.textContent("#spinReel .strip"), /Nothing with tofu/);
+    assert.match(await pg.textContent("#spinReel .strip"), /No meals with tofu/);
     await pg.fill("#spinQ", "");
     await landed();
     await pg.locator("#spinDlg [data-close]").click();

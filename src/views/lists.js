@@ -1,21 +1,32 @@
-// Profile button (account dialog) and "My lists" button (lists dialog) in the footer. Only wired
-// up when Firebase is configured; guests see a sign-in nudge in place of sharing. Each dialog is
+// The account sheet behind the avatar in the header: who you are, your lists, and (in the page
+// markup) the theme. Sign-in and sharing only appear when Firebase is configured. The sheet is
 // built on open so a sync echo never wipes what you're typing.
-import { $, el, leaveIcon, mailIcon, plusIcon, shareIcon, toast, userIcon } from "../dom.js";
+import { $, el, editIcon, toast, userIcon } from "../dom.js";
 import { state, setName } from "../state.js";
-import { openDialog, closeDialog } from "../dialogs.js";
+import { openDialog, closeDialog, confirmSheet } from "../dialogs.js";
 
 let api = null;
 
+export const initials = (name) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+
+// The avatar: a photo if Google gave one, otherwise initials; guests get a person outline.
+function avatar(node, acct) {
+  node.style.backgroundImage = acct && acct.photo ? `url("${acct.photo}")` : "";
+  node.replaceChildren(acct ? (acct.photo ? "" : initials(acct.name)) : userIcon());
+}
+
 export function initLists(a) {
   api = a;
-  $("acctBtn").hidden = false;
-  $("listsBtn").hidden = false;
   renderProfile();
-  $("listsBtn").onclick = () => {
-    fillLists();
-    openDialog("listsDlg");
-  };
+}
+export function initAccount() {
+  renderProfile();
   $("acctBtn").onclick = () => {
     fillAccount();
     openDialog("acctDlg");
@@ -23,19 +34,19 @@ export function initLists(a) {
 }
 
 export function renderProfile() {
-  if (!api) return;
-  const acct = api.account();
-  $("whoName").textContent = acct ? acct.name : "Guest";
-  // Google gives a photo; email sign-ins and guests get a blank disc
-  $("whoPic").style.backgroundImage = acct && acct.photo ? `url("${acct.photo}")` : "";
-  $("whoSub").textContent = acct ? "Signed in" : "Sign in to sync and share";
+  const acct = api && api.account();
+  avatar($("acctBtn"), acct);
+  $("acctBtn").dataset.who = acct ? acct.name : "Guest";
+  $("acctBtn").setAttribute(
+    "aria-label",
+    acct ? `Account and settings, signed in as ${acct.name}` : "Account and settings",
+  );
 }
 
-// Open the account dialog with a reason on top, e.g. a guest landing on an invite link.
+// Open the account sheet with a reason on top, e.g. a guest landing on an invite link.
 export function promptSignIn(lead) {
-  closeDialog("listsDlg");
   fillAccount(lead);
-  openDialog("acctDlg");
+  if (!$("acctDlg").open) openDialog("acctDlg");
 }
 
 const busy = async (fn) => {
@@ -46,110 +57,16 @@ const busy = async (fn) => {
   }
 };
 
-function fillLists() {
-  const box = $("listsBody");
-  const members = Object.keys(state.members).length;
-  const nameIn = el("input", { class: "lname", value: state.name, maxlength: "60", "aria-label": "List name" });
-  nameIn.onchange = () => {
-    setName(nameIn.value);
-    nameIn.value = state.name;
+// The list's name is a field: type over it and it saves when you leave the field.
+function nameField() {
+  const input = el("input", { class: "lname", value: state.name, maxlength: "60", "aria-label": "List name" });
+  input.onchange = () => {
+    const before = state.name;
+    setName(input.value);
+    input.value = state.name;
+    if (state.name !== before) toast(`List renamed to ${state.name}.`);
   };
-  if (!api.account()) {
-    box.replaceChildren(
-      el("h3", {}, "This list"),
-      nameIn,
-      el("p", { class: "muted" }, "It lives on this device. Sign in to share it or use it on another device."),
-      el(
-        "button",
-        { class: "btn", onclick: () => promptSignIn("Sign in to share this list and sync it to your other devices.") },
-        userIcon(),
-        "Sign in",
-      ),
-    );
-    return;
-  }
-  const others = el("div", { class: "others" });
-  api.names().then((names) => {
-    others.replaceChildren(
-      ...Object.entries(names)
-        .filter(([id]) => id !== api.current)
-        .map(([id, name]) =>
-          el(
-            "button",
-            {
-              class: "lrow",
-              onclick: () =>
-                busy(async () => {
-                  closeDialog("listsDlg");
-                  await api.switchTo(id);
-                }),
-            },
-            name,
-          ),
-        ),
-    );
-    if (!others.children.length) others.append(el("p", { class: "muted" }, "Just this one so far."));
-  });
-  box.replaceChildren(
-    el("h3", {}, "This list"),
-    nameIn,
-    el(
-      "div",
-      { class: "r" },
-      el(
-        "button",
-        {
-          class: "btn",
-          onclick: () => {
-            const v = (prompt("Their email address:") || "").trim();
-            if (!v) return;
-            if (!v.includes("@")) return toast("That doesn’t look like an email address.");
-            busy(async () => {
-              await api.invite(v);
-              toast(`Invited ${v.toLowerCase()}. The list shows up when they sign in with that email.`);
-              fillLists();
-            });
-          },
-        },
-        shareIcon(),
-        "Invite someone",
-      ),
-      el(
-        "button",
-        {
-          class: "btn danger",
-          onclick: () => {
-            const msg =
-              members <= 1
-                ? `Leave and delete “${state.name}”? Its meals and weeks go with it.`
-                : `Leave “${state.name}”? The others keep it; you can rejoin with an invite link.`;
-            if (confirm(msg)) busy(() => api.leaveList().then(() => closeDialog("listsDlg")));
-          },
-        },
-        leaveIcon(),
-        "Leave",
-      ),
-    ),
-    ...invitesBlock(),
-    el("h3", {}, "Your other lists"),
-    others,
-    el(
-      "button",
-      {
-        class: "btn",
-        onclick: () => {
-          const name = prompt("Name the new list:", "Lake trip");
-          if (name && name.trim())
-            busy(async () => {
-              closeDialog("listsDlg");
-              await api.createList(name.trim());
-            });
-        },
-      },
-      plusIcon(),
-      "New list",
-    ),
-  );
+  return el("div", { class: "nameedit" }, input, editIcon());
 }
 
 // Google's four-colour G, inline so it works offline.
@@ -160,87 +77,246 @@ function googleMark() {
   return span;
 }
 
-// Emails this list has invited, each with a way to take it back.
-function invitesBlock() {
-  const emails = Object.keys(state.invites).sort();
-  if (!emails.length) return [];
-  return [
-    el("h3", {}, "Invited"),
-    el(
-      "div",
-      { class: "others" },
-      ...emails.map((e) =>
-        el(
-          "span",
-          { class: "irow" },
-          e,
-          el(
-            "button",
-            {
-              type: "button",
-              "aria-label": `Remove ${e}`,
-              onclick: () => busy(() => api.uninvite(e).then(fillLists)),
-            },
-            "×",
-          ),
-        ),
-      ),
-    ),
-  ];
-}
+/* ---------- signed out ---------- */
 
-function fillAccount(
-  lead = "Sign in to sync across your devices and share lists. What’s on this device comes with you.",
-) {
-  const acct = api.account();
+function signInBlock(lead) {
   const email = el("input", {
     type: "email",
     class: "lname",
+    id: "acctEmail",
     placeholder: "Your email",
     "aria-label": "Email address",
     autocomplete: "email",
   });
-  const body = acct
-    ? el(
-        "div",
-        { class: "acct" },
-        el("p", { class: "muted" }, `Signed in as ${acct.email || acct.name}. Your lists follow you to any device.`),
+  const link = el("input", {
+    class: "lname",
+    id: "acctLink",
+    placeholder: "Paste the sign-in link",
+    "aria-label": "Sign-in link from the email",
+    autocomplete: "off",
+  });
+  // A home-screen app can't receive the emailed link (it opens in the browser, which has its own
+  // storage), so the link can be pasted here instead.
+  const paste = el(
+    "details",
+    { id: "acctPaste" },
+    el("summary", {}, "Link opened somewhere else?"),
+    el(
+      "div",
+      { class: "stack" },
+      el("p", { class: "muted" }, "In the email, press and hold the link, copy it, then paste it here."),
+      link,
+      el(
+        "button",
+        {
+          class: "btn ghost",
+          onclick: () => {
+            const v = link.value.trim();
+            if (!v) return toast("Paste the link from the email first.");
+            busy(async () => {
+              if (await api.signInWithLink(email.value.trim(), v)) closeDialog("acctDlg");
+            });
+          },
+        },
+        "Sign in with this link",
+      ),
+    ),
+  );
+  return [
+    el("p", { class: "muted" }, lead),
+    el(
+      "button",
+      { class: "btn google", onclick: () => busy(() => api.signInGoogle().then(() => closeDialog("acctDlg"))) },
+      googleMark(),
+      "Sign in with Google",
+    ),
+    el("span", { class: "or" }, "or"),
+    el(
+      "div",
+      { class: "stack" },
+      email,
+      el(
+        "button",
+        {
+          class: "btn",
+          onclick: () => {
+            const v = email.value.trim();
+            if (!v.includes("@")) return toast("Enter your email first.");
+            busy(async () => {
+              if (await api.sendEmailLink(v)) paste.open = true;
+            });
+          },
+        },
+        "Email me a link",
+      ),
+    ),
+    paste,
+    el("h3", {}, "This list"),
+    nameField(),
+    el("p", { class: "muted" }, "Saved on this device. Sign in to share it or use it on another device."),
+  ];
+}
+
+/* ---------- signed in ---------- */
+
+function accountBlock(acct) {
+  const pic = el("span", { class: "avatar", "aria-hidden": "true" });
+  avatar(pic, acct);
+  return [
+    el(
+      "div",
+      { class: "who" },
+      pic,
+      el("div", {}, el("strong", {}, acct.name), acct.email ? el("small", {}, acct.email) : null),
+    ),
+    el(
+      "button",
+      { class: "btn ghost", onclick: () => busy(() => api.signOutUser().then(() => closeDialog("acctDlg"))) },
+      "Sign out",
+    ),
+  ];
+}
+
+// Emails this list has invited, each with a way to take it back.
+function invited() {
+  const emails = Object.keys(state.invites).sort();
+  if (!emails.length) return null;
+  return el(
+    "div",
+    { class: "others" },
+    ...emails.map((e) =>
+      el(
+        "span",
+        { class: "irow" },
+        `Invited: ${e}`,
         el(
           "button",
-          { class: "btn ghost", onclick: () => busy(() => api.signOutUser().then(() => closeDialog("acctDlg"))) },
-          leaveIcon(),
-          "Sign out",
+          {
+            type: "button",
+            "aria-label": `Remove invite for ${e}`,
+            onclick: () => busy(() => api.uninvite(e).then(refill)),
+          },
+          "×",
         ),
-      )
-    : el(
-        "div",
-        { class: "acct" },
-        el("p", { class: "muted" }, lead),
+      ),
+    ),
+  );
+}
+
+function listsBlock() {
+  const members = Object.keys(state.members).length;
+  const inviteIn = el("input", {
+    type: "email",
+    class: "lname",
+    id: "inviteEmail",
+    placeholder: "Their email",
+    "aria-label": "Email address to invite",
+    autocomplete: "off",
+  });
+  const invite = () => {
+    const v = inviteIn.value.trim();
+    if (!v.includes("@")) return toast("Enter their email address first.");
+    busy(async () => {
+      await api.invite(v);
+      toast(`Invited ${v.toLowerCase()}. They will see this list when they sign in with that email.`);
+      refill();
+    });
+  };
+  const newIn = el("input", {
+    class: "lname",
+    id: "newListName",
+    placeholder: "New list name, e.g. Lake trip",
+    "aria-label": "New list name",
+    maxlength: "60",
+    autocomplete: "off",
+  });
+  const create = () => {
+    const v = newIn.value.trim();
+    if (!v) return toast("Name the new list first.");
+    busy(async () => {
+      closeDialog("acctDlg");
+      await api.createList(v);
+    });
+  };
+
+  // other lists, and whether this is the only one, arrive once their names are read
+  const others = el("div", { class: "others" }, el("p", { class: "muted" }, "Loading your lists…"));
+  const leaveNote = el("p", { class: "muted" });
+  const leaveBtn = el("button", { class: "btn danger leave", id: "leaveList", disabled: "" }, "Leave this list");
+  api.names().then((names) => {
+    const rest = Object.entries(names).filter(([id]) => id !== api.current);
+    others.replaceChildren(
+      ...rest.map(([id, name]) =>
         el(
           "button",
-          { class: "btn google", onclick: () => busy(() => api.signInGoogle().then(() => closeDialog("acctDlg"))) },
-          googleMark(),
-          "Sign in with Google",
+          {
+            class: "lrow",
+            onclick: () =>
+              busy(async () => {
+                closeDialog("acctDlg");
+                await api.switchTo(id);
+              }),
+          },
+          name,
         ),
-        el("span", { class: "or" }, "or"),
-        el(
-          "div",
-          { class: "group" },
-          email,
-          el(
-            "button",
-            {
-              class: "btn",
-              onclick: () => {
-                const v = email.value.trim();
-                if (!v.includes("@")) return toast("Enter your email first.");
-                busy(() => api.sendEmailLink(v).then(() => closeDialog("acctDlg")));
-              },
-            },
-            mailIcon(),
-            "Email me a link",
-          ),
-        ),
-      );
-  $("acctBody").replaceChildren(body);
+      ),
+    );
+    if (!rest.length) others.append(el("p", { class: "muted" }, "You have no other lists."));
+    // leaving your only list would leave you with nothing, so it is blocked
+    if (!rest.length) {
+      leaveNote.textContent = "This is your only list, so you can’t leave it. Create another list first.";
+      return;
+    }
+    leaveBtn.disabled = false;
+    leaveNote.textContent =
+      members <= 1
+        ? "You are the only person on this list. Leaving deletes it, with its meals and weeks."
+        : "Leaving takes this list off your account. The others keep it, and can invite you back.";
+  });
+  leaveBtn.onclick = async () => {
+    const yes = await confirmSheet({
+      title: `Leave ${state.name}?`,
+      message:
+        members <= 1
+          ? "Nobody else is on this list, so it will be deleted along with its meals and weeks."
+          : "You will lose access to it. The others keep it and can invite you back.",
+      ok: members <= 1 ? "Leave and delete" : "Leave list",
+    });
+    if (yes) busy(() => api.leaveList().then(() => closeDialog("acctDlg")));
+  };
+
+  return [
+    el("h3", {}, "This list"),
+    nameField(),
+    el(
+      "div",
+      { class: "stack" },
+      el("p", { class: "muted" }, "Share it with someone by email."),
+      inviteIn,
+      el("button", { class: "btn", id: "inviteBtn", onclick: invite }, "Invite"),
+    ),
+    invited(),
+    el("h3", {}, "Other lists"),
+    others,
+    el(
+      "div",
+      { class: "stack" },
+      newIn,
+      el("button", { class: "btn ghost", id: "newListBtn", onclick: create }, "Create list"),
+    ),
+    el("h3", {}, "Leave this list"),
+    leaveNote,
+    leaveBtn,
+  ];
+}
+
+let lastLead;
+const refill = () => fillAccount(lastLead);
+
+function fillAccount(lead = "Sign in to sync across your devices and share lists. Your current lists will be kept.") {
+  lastLead = lead;
+  const body = $("acctBody");
+  if (!api) return body.replaceChildren(el("p", { class: "muted" }, "Everything is saved on this device only."));
+  const acct = api.account();
+  body.replaceChildren(...(acct ? [...accountBlock(acct), ...listsBlock()] : signInBlock(lead)).filter(Boolean));
 }
