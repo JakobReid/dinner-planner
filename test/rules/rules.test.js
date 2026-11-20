@@ -116,6 +116,43 @@ describe("household membership", () => {
     await assertSucceeds(setDoc(hh(user("u9")), { name: "Home" }, { merge: true }));
   });
 
+  it("members write meal times and anyone's plan for a meal time", async () => {
+    await seed(ID, { ...fresh("u1"), members: { u1: true, u2: true } });
+    const mealTimes = {
+      breakfast: { name: "Breakfast", each: true, order: 0 },
+      dinner: { name: "Dinner", each: false, order: 1 },
+    };
+    await assertSucceeds(setDoc(hh(user("u1")), { mealTimes }, { merge: true }));
+    await assertSucceeds(
+      setDoc(
+        hh(user("u2")),
+        { weeks: { "2026-10-30": { plans: { breakfast: { u2: { Mon: "m1" } } } } } },
+        { merge: true },
+      ),
+    );
+    await assertSucceeds(updateDoc(hh(user("u1")), { "mealTimes.breakfast": deleteField() }));
+    await assertFails(setDoc(hh(user("u3")), { mealTimes }, { merge: true }), "outsider");
+    await assertFails(setDoc(hh(user("u1")), { mealTimes: ["Dinner"] }, { merge: true }), "not a map");
+    const many = Object.fromEntries(
+      Array.from({ length: 31 }, (_, i) => ["t" + i, { name: "x", each: true, order: i }]),
+    );
+    await assertFails(setDoc(hh(user("u1")), { mealTimes: many }, { merge: true }), "too many");
+  });
+
+  it("you set the name you go by, and nobody else's", async () => {
+    await seed(ID, { ...fresh("u1"), members: { u1: true, u2: true }, people: { u2: { name: "Partner" } } });
+    await assertSucceeds(setDoc(hh(user("u1")), { people: { u1: { name: "Jakob" } } }, { merge: true }));
+    await assertFails(setDoc(hh(user("u1")), { people: { u2: { name: "Someone else" } } }, { merge: true }));
+    await assertFails(updateDoc(hh(user("u1")), { "people.u2": deleteField() }));
+    await assertFails(setDoc(hh(user("u3")), { people: { u3: { name: "Outsider" } } }, { merge: true }));
+    await assertFails(setDoc(hh(user("u1")), { people: "nope" }, { merge: true }));
+    // leaving takes your name with you
+    await assertSucceeds(updateDoc(hh(user("u1")), { "members.u1": deleteField(), "people.u1": deleteField() }));
+    // a new list can carry your own name, never someone else's
+    await assertSucceeds(setDoc(hh(user("u5"), "e".repeat(24)), { ...fresh("u5"), people: { u5: { name: "Sam" } } }));
+    await assertFails(setDoc(hh(user("u5"), "f".repeat(24)), { ...fresh("u5"), people: { u6: { name: "Sam" } } }));
+  });
+
   it("rejects unknown fields, wrong types and oversized maps", async () => {
     await assertFails(setDoc(hh(user()), { ...fresh("u1"), owner: "me" }));
     await assertFails(setDoc(hh(user()), { ...fresh("u1"), meals: [] }));

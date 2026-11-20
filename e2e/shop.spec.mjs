@@ -87,6 +87,19 @@ export const tests = {
     await pause(80);
     assert.equal(await pg.locator("#shopList .item", { hasText: "garlic" }).count(), 1, "Add back");
     assert.equal(Number(await pg.textContent("#shopCount")), badge);
+    // a quick press that the list redraws under (as a change from another device does) is not a long press
+    await pg.locator("#shopList .item", { hasText: "tomato" }).evaluate((e) => e.scrollIntoView({ block: "center" }));
+    const tomato = await pg.locator("#shopList .item", { hasText: "tomato" }).locator("label").boundingBox();
+    await pg.mouse.move(tomato.x + 30, tomato.y + tomato.height / 2);
+    await pg.mouse.down();
+    await pg.evaluate(() => {
+      const box = document.getElementById("extraIn");
+      box.value = "Foil";
+      box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); // adding an extra redraws the list
+    });
+    await pg.mouse.up();
+    await pause(700);
+    assert.equal(await pg.locator("#aisleDlg[open]").count(), 0, "no move sheet after a redraw mid-press");
     // a long press offers the aisles without going into Edit aisles
     await pg.locator("#shopList .item", { hasText: "lime" }).evaluate((e) => e.scrollIntoView({ block: "center" }));
     const lime = await pg.locator("#shopList .item", { hasText: "lime" }).locator("label").boundingBox();

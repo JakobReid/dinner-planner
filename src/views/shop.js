@@ -7,6 +7,7 @@ import {
   keyOf,
   aisleOf,
   shoppingItems,
+  sourceTag,
   tick,
   setHave,
   addExtra,
@@ -69,6 +70,9 @@ function longPress(row, fn) {
     y = e.clientY;
     stop();
     timer = setTimeout(() => {
+      // the list was redrawn under the finger (a tick, or a change from another device), so this
+      // row is gone and its press never got to end: that isn't a long press
+      if (!row.isConnected) return;
       // the press ends in a click on the row; swallow it so the box isn't ticked as well
       row.addEventListener("click", (c) => c.preventDefault(), { once: true, capture: true });
       fn();
@@ -106,7 +110,7 @@ export function renderShop() {
     : [`${left} to buy`, inTrolley.length ? `${inTrolley.length} in the trolley` : ""].filter(Boolean).join(" · ");
   if (!items.length && !w.extras.length) {
     if (!sorting) $("shopSummary").textContent = "";
-    box.append(el("div", { class: "empty-state" }, "Plan some dinners and their ingredients will show up here."));
+    box.append(el("div", { class: "empty-state" }, "Plan some meals and their ingredients will show up here."));
     return;
   }
 
@@ -130,7 +134,7 @@ export function renderShop() {
         { for: id },
         el("span", { class: "t" }, it.name),
         it.optional ? el("span", { class: "tag" }, "optional") : null,
-        it.meals.length > 1 ? el("span", { class: "qty" }, `${it.meals.length} meals`) : null,
+        sourceTag(it) ? el("span", { class: "qty" }, sourceTag(it)) : null,
       ),
       aislePicker(it.key, it.name),
       on

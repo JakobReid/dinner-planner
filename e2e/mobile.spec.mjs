@@ -139,7 +139,7 @@ for (const w of [320, 375, 390]) {
     await settle();
     clean(await audit(pg), `${w} picker`);
     await pg.locator("#pickDlg [data-close]").click();
-    await pg.click("#acctBtn");
+    await pg.click("#t-settings");
     await settle();
     clean(await audit(pg), `${w} account`);
     assert.deepEqual(errors, []);

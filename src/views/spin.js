@@ -3,7 +3,7 @@
 // planned is ever overwritten. A filter narrows the reel to meals with that ingredient.
 import { DAYS, DAY_FULL, addDays, fmt } from "../dates.js";
 import { $, el, toast } from "../dom.js";
-import { viewWeek, state, emptyNights, spinPool, spinExcluded, spin, setNight } from "../state.js";
+import { viewWeek, state, curTime, isMain, emptyNights, spinPool, spinExcluded, spin, setNight } from "../state.js";
 import { render } from "../render.js";
 import { openDialog, closeDialog } from "../dialogs.js";
 
@@ -15,20 +15,23 @@ let kept = []; // row indexes planned this session, flashed at the end
 let token = 0; // ignores a stale transitionend after a re-spin
 let timer = null;
 
+// dinners fill nights; breakfasts, lunches and the rest fill days
+const unit = (n) => (isMain() ? "night" : "day") + (n === 1 ? "" : "s");
+
 const REEL = 24; // names that scroll past before the landing one
 const still = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function openSpin() {
   if (!state.meals.length) return toast("Add a meal first.");
   nights = emptyNights();
-  if (!nights.length) return toast("No empty nights left this week.");
+  if (!nights.length) return toast(`No empty ${unit(2)} left this week.`);
   at = 0;
   kept = [];
   tags = [];
   $("spinQ").value = "";
   $("spinFills").textContent =
-    (nights.length === 1 ? "Fills 1 empty night" : `Fills ${nights.length} empty nights`) +
-    `: ${nights.join(", ")}. Planned nights are not changed.`;
+    `Fills ${nights.length} empty ${unit(nights.length)}` +
+    `: ${nights.join(", ")}. Planned ${unit(2)} are not changed.`;
   paintTags();
   openDialog("spinDlg");
   night();
@@ -62,7 +65,9 @@ function night() {
   const d = nights[at];
   const i = DAYS.indexOf(d);
   $("spinTitle").textContent = `${DAY_FULL[i]} ${fmt(addDays(viewWeek, i))}`;
-  $("spinStep").textContent = `Night ${at + 1} of ${nights.length}`;
+  $("spinStep").textContent = isMain()
+    ? `Night ${at + 1} of ${nights.length}`
+    : `${curTime().name} · Day ${at + 1} of ${nights.length}`;
   go(null);
 }
 
@@ -141,7 +146,7 @@ function next() {
   if (at < nights.length) return night();
   closeDialog("spinDlg");
   render({ flash: kept });
-  if (kept.length) toast(kept.length === 1 ? "1 night planned." : `${kept.length} nights planned.`);
+  if (kept.length) toast(`${kept.length} ${unit(kept.length)} planned.`);
 }
 
 export function initSpin() {

@@ -1,6 +1,7 @@
 # Dinner planner
 
-Plan the week's dinners, keep a list of meals, and get a shopping list sorted by aisle. Shared with
+Plan the week's dinners (and breakfasts, lunches or any other meal time), keep a list of meals, and get
+a shopping list sorted by aisle. Shared with
 whoever has your household link. Vanilla JS on Vite, Firestore for sync, Firebase Hosting.
 
 ## Run it
@@ -24,13 +25,28 @@ Checks, or all of them with `npm run check`:
 
 ## Layout
 
-Four tabs in a bar fixed to the foot of the screen (Week, Meals, Shopping, Profile). The Profile tab
-shows your avatar and holds sign in or out, your lists, and the theme. The header is just the week
+Four tabs in a bar fixed to the foot of the screen (Week, Meals, Shopping, Settings). Settings holds
+sign in or out, this list and its people, the meal times, and the theme. The header is just the week
 being viewed. Every dialog is a
 bottom sheet (`src/dialogs.js`) with its actions pinned in a footer, Close or Cancel on the left and
 the main action on the right; drag the head down or tap outside to dismiss. Destructive actions sit
 apart from those and either ask first (`confirmSheet`) or offer Undo in the toast. Toasts sit just
 above the tab bar, or above the sheet while one is open.
+
+## Meal times
+
+A list has an ordered set of meal times, by default Breakfast, Lunch and Dinner. Each is either shared
+(one plan a day for the whole list, as Dinner always was) or each person (every member plans their own;
+you can read the others' but only change yours, which the app enforces and the rules do not). Week shows
+one as a row of tabs and opens on Dinner. Any meal can go in any meal time, and every meal time and
+person feeds the shopping list.
+
+In the document, `mealTimes` is a map by id and is only written once a list changes its meal times;
+without it the three defaults apply. A week's shared dinners stay in its `plan` field, where they have
+always been, so nothing is migrated and an older build still reads and writes them. Every other plan is
+in `plans[mealTimeId][who][day]`, where `who` is a member's id, or `all` for a shared meal time. `people`
+holds the name each member goes by, written by that member; a guest's device plans as `me` until they
+sign in.
 
 ## How sync works
 

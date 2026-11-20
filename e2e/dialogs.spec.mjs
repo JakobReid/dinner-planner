@@ -111,11 +111,11 @@ export const tests = {
     }
     await ctx.close();
   },
-  "settings: theme lives on the profile tab, with System, Light and Dark": async (browser, url) => {
+  "settings: theme lives on the Settings tab, with System, Light and Dark": async (browser, url) => {
     const { pg, ctx } = await open(browser, url);
     const theme = () => pg.evaluate(() => document.documentElement.dataset.theme);
     assert.equal(await theme(), undefined, "light by default");
-    await pg.click("#acctBtn");
+    await pg.click("#t-settings");
     assert.deepEqual(await pg.locator("#themeSeg button").allTextContents(), ["System", "Light", "Dark"]);
     await pg.locator('#themeSeg button[data-theme="dark"]').click();
     assert.equal(await theme(), "dark");
@@ -123,21 +123,21 @@ export const tests = {
     await pg.reload();
     await pg.waitForSelector("#days .day");
     assert.equal(await theme(), "dark", "remembered");
-    await pg.click("#acctBtn");
+    await pg.click("#t-settings");
     await pg.locator('#themeSeg button[data-theme="system"]').click();
     assert.equal(await theme(), undefined, "system follows a light phone");
     await pg.emulateMedia({ colorScheme: "dark" });
     await pause(50);
     assert.equal(await theme(), "dark", "and a dark one, as it changes");
     await pg.reload();
-    await pg.waitForSelector("#days .day", { state: "attached" }); // reloads onto the profile tab
+    await pg.waitForSelector("#days .day", { state: "attached" }); // reloads onto the Settings tab
     assert.equal(await theme(), "dark", "system is remembered too");
-    await pg.click("#acctBtn");
+    await pg.click("#t-settings");
     await pg.locator('#themeSeg button[data-theme="light"]').click();
     assert.equal(await theme(), undefined);
     await ctx.close();
   },
-  "header: only the week, the same height on any week, and hidden on the profile tab": async (browser, url) => {
+  "header: only the week, the same height on any week, and hidden in Settings": async (browser, url) => {
     const { pg, ctx } = await open(browser, url, { viewport: { width: 375, height: 500 } });
     // "Back to this week" has its space reserved, so the header is the same height on any week
     const height = () => pg.evaluate(() => document.querySelector("header").offsetHeight);
@@ -157,9 +157,9 @@ export const tests = {
       return (a.top + b.bottom) / 2;
     });
     assert.ok(Math.abs(text - (await mid("#prevWk"))) < 2, "week label centred on the arrows");
-    await pg.click("#t-profile");
-    assert.equal(await pg.locator("header").isVisible(), false, "no week arrows on the profile tab");
-    assert.equal(await pg.locator("h1").count(), 0, "the title row is gone");
+    await pg.click("#t-settings");
+    assert.equal(await pg.locator("header").isVisible(), false, "no week arrows in Settings");
+    assert.equal(await pg.locator("header h1").count(), 0, "the title row is gone");
     await pg.click("#t-shop");
     assert.equal(await pg.locator("header").isVisible(), true);
     // a full week with a two-line meal fits a small phone without scrolling

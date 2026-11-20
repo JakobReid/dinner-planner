@@ -1,6 +1,6 @@
 import { DAYS, addDays, fmt, todayStr } from "../dates.js";
 import { $, el } from "../dom.js";
-import { state, viewWeek, wk, lastHad, matchMeals } from "../state.js";
+import { state, viewWeek, mainPlan, lastHad, matchMeals } from "../state.js";
 import { onRender } from "../render.js";
 import { openMeal } from "./editor.js";
 
@@ -13,7 +13,7 @@ function renderMeals() {
     box.append(el("div", { class: "empty-state" }, "No meals yet. Add the dinners you make most often."));
     return;
   }
-  const plan = wk().plan;
+  const plan = mainPlan();
   const last = lastHad();
   const today = todayStr();
   const raw = $("mealQ").value.trim();

@@ -36,7 +36,7 @@ import {
   where,
 } from "firebase/firestore";
 import { $, toast } from "./dom.js";
-import { DEL, replaceState, setRemote, state, toDoc } from "./state.js";
+import { DEL, replaceState, setMe, setRemote, state, toDoc } from "./state.js";
 import { render } from "./render.js";
 import { initLists, promptSignIn, renderProfile } from "./views/lists.js";
 
@@ -124,12 +124,16 @@ function detach() {
   uid = null;
   current = null;
   user = { households: {}, current: null };
+  nameSent.clear();
+  setMe(null); // the copy left on the device is one person's again
+  render();
   status("");
 }
 
 // Called whenever the signed-in user changes: work out which household to show and subscribe.
 async function attach(u) {
   uid = u.uid;
+  setMe(uid); // what this device planned as its one person is now yours
   if (unsub) unsub();
   unsub = null;
   try {
@@ -210,12 +214,27 @@ function subscribe() {
         return;
       }
       replaceState(data);
+      shareName(ref, data, fromCache);
       render();
       // older documents kept meals as an array; the rules now want the map
       if (Array.isArray(data.meals)) write(ref, { meals: toDoc(state).meals }).catch(saveFail);
     },
     () => status("Couldn’t reach this list. Changes are saved on this device."),
   );
+}
+
+// Members are stored by account id, so each person adds the name the others will see them by:
+// on the chips over a meal time everyone plans for themselves, and under People in Settings.
+// It is offered once per list each session. A write the server turns down comes back as another
+// snapshot without the name, and trying again from there would never stop.
+const nameSent = new Set();
+function shareName(ref, data, fromCache) {
+  const name = api.account()?.name.slice(0, 60);
+  if (!name || !(uid in (data.members || {})) || data.people?.[uid]?.name === name) return;
+  state.people[uid] = { name }; // shown on this device either way
+  if (fromCache || nameSent.has(ref.id)) return;
+  nameSent.add(ref.id);
+  write(ref, { people: { [uid]: { name } } }).catch(() => {});
 }
 
 /* ---------- lists ---------- */
@@ -275,7 +294,8 @@ const api = {
     unsub = null;
     setRemote(null);
     const others = Object.keys(state.members).filter((m) => m !== uid);
-    if (others.length) await updateDoc(hhRef(id), { [`members.${uid}`]: deleteField() });
+    if (others.length)
+      await updateDoc(hhRef(id), { [`members.${uid}`]: deleteField(), [`people.${uid}`]: deleteField() });
     else await deleteDoc(hhRef(id));
     delete user.households[id];
     await saveUser({ households: { [id]: DEL } });

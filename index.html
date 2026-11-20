@@ -26,7 +26,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=Caveat:wght@500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
   </head>
@@ -44,8 +44,15 @@
       </header>
 
       <section id="week" role="tabpanel" aria-labelledby="t-week">
+        <div class="timebar">
+          <nav class="timetabs" id="timeTabs" aria-label="Meal time"></nav>
+          <button class="timeadd" id="timeAdd" aria-label="Add or manage meal times in Settings"></button>
+        </div>
+        <div class="chips who-chips" id="whoChips" role="group" aria-label="Whose meals" hidden></div>
         <div id="days"></div>
-        <div class="actions">
+        <p class="muted theirs" id="whoNote" hidden></p>
+        <button class="textbtn" id="fillBtn" hidden></button>
+        <div class="actions" id="weekActions">
           <button class="btn" id="spinBtn">Spin the wheel</button>
           <div class="more">
             <button
@@ -89,14 +96,19 @@
         </div>
         <div id="shopDone"></div>
       </section>
-      <section id="profile" class="lists" role="tabpanel" aria-labelledby="t-profile" hidden>
-        <div class="lists" id="acctBody"></div>
-        <h3>Theme</h3>
-        <div class="seg" id="themeSeg">
-          <button type="button" data-theme="system" aria-pressed="false">System</button>
-          <button type="button" data-theme="light" aria-pressed="true">Light</button>
-          <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+      <section id="settings" class="settings" role="tabpanel" aria-labelledby="t-settings" hidden>
+        <h1>Settings</h1>
+        <div class="settings" id="acctBody"></div>
+        <div class="lists" id="timesBody"></div>
+        <div class="lists">
+          <h2>Theme</h2>
+          <div class="seg" id="themeSeg" role="group" aria-label="Theme">
+            <button type="button" data-theme="system" aria-pressed="false">System</button>
+            <button type="button" data-theme="light" aria-pressed="true">Light</button>
+            <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+          </div>
         </div>
+        <div class="lists" id="leaveBody" hidden></div>
       </section>
       <p class="sync"><span id="sync"></span></p>
     </div>
@@ -107,8 +119,8 @@
       <button role="tab" id="t-shop" aria-selected="false" data-tab="shop">
         <span class="lbl">Shopping</span><span class="count" id="shopCount" hidden></span>
       </button>
-      <button role="tab" id="t-profile" aria-selected="false" data-tab="profile">
-        <span class="avatar" id="acctBtn"></span><span class="lbl">Profile</span>
+      <button role="tab" id="t-settings" aria-selected="false" data-tab="settings">
+        <span class="lbl">Settings</span>
       </button>
     </nav>
 
@@ -116,6 +128,7 @@
       <div class="sheet-head">
         <span class="grab"></span>
         <h2 id="pickTitle">Monday</h2>
+        <p class="sheet-sub" id="pickSub" hidden></p>
       </div>
       <div class="sheet-fixed">
         <div class="chips" id="pickChips"></div>
@@ -238,6 +251,19 @@
       </div>
       <div class="sheet-foot">
         <button class="btn ghost" data-close>Cancel</button>
+      </div>
+    </dialog>
+
+    <dialog id="listsDlg" class="sheet" data-keep>
+      <div class="sheet-head">
+        <span class="grab"></span>
+        <h2>Your lists</h2>
+      </div>
+      <div class="sheet-body">
+        <div class="lists" id="listsBody"></div>
+      </div>
+      <div class="sheet-foot">
+        <button class="btn ghost" data-close>Close</button>
       </div>
     </dialog>
 

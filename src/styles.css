@@ -10,7 +10,8 @@
   --hot: #b5391f;
   --tape: #6aff6c;
   --tape-ink: #111a12;
-  --hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
+  --sans: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --hand: "Caveat Brush", "Segoe Print", "Bradley Hand", cursive;
   --tabbar-h: 58px;
   /* masking tape: a grain over the tape colour, and a torn edge at each end.
      No blend mode on tape: multiply made it vanish on Android Chrome with the phone in dark mode. */
@@ -63,13 +64,7 @@ body {
   color-scheme: light;
   background: var(--bg);
   color: var(--ink);
-  font-family:
-    "Bricolage Grotesque",
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--sans);
   font-size: 17px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
@@ -149,23 +144,9 @@ header {
   width: 22px;
   height: 22px;
 }
-/* in the tab bar the avatar stands in for an icon */
-.tabbar .avatar {
-  width: 24px;
-  height: 24px;
-  margin: -1px 0; /* sits on the same line as the 22px icons */
-  font-size: 0.6rem;
-}
-/* no header above the profile tab, so it brings its own headroom */
-#profile {
+/* no header above Settings, so it brings its own headroom */
+#settings {
   padding-top: 20px;
-}
-.tabbar .avatar .ico {
-  width: 20px;
-  height: 20px;
-}
-.tabbar button:not([aria-selected="true"]) .avatar {
-  color: var(--muted);
 }
 .weeknav {
   display: flex;
@@ -289,7 +270,93 @@ section {
   padding-top: 8px;
 }
 
-/* week */
+/* week: a text tab per meal time under the header, with the way to Settings at the end */
+.timebar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -8px -18px 0;
+  padding: 0 8px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.timetabs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.timetabs::-webkit-scrollbar {
+  display: none;
+}
+.timetabs button {
+  flex: none;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: inset 0 -3px 0 transparent;
+}
+.timetabs button[aria-pressed="true"] {
+  color: var(--ink);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+.timetabs button:focus-visible {
+  outline-offset: -3px;
+}
+.timeadd {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+.timeadd .ico {
+  width: 20px;
+  height: 20px;
+}
+/* whose meals: a chip per person, and a dashed one that leads to inviting someone */
+.who-chips {
+  margin: 12px 0 6px;
+}
+.chipbtn.addwho {
+  width: 44px;
+  padding: 0;
+  justify-content: center;
+  border-style: dashed;
+  border-color: var(--muted);
+  background: none;
+}
+/* someone else's days are theirs: nothing to press unless there's a meal to look at */
+.day:disabled {
+  color: inherit;
+  cursor: default;
+}
+.theirs {
+  margin-top: 12px;
+}
+/* an action that reads as text, e.g. Fill empty days */
+.textbtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-weight: 700;
+  text-align: left;
+}
 .day {
   display: block;
   width: 100%;
@@ -297,7 +364,9 @@ section {
   background: none;
   border: 0;
   border-bottom: 1px solid var(--line);
-  padding: 10px 2px;
+  /* a little tighter than it was, to give the meal time tabs their row on a small phone */
+  min-height: 44px;
+  padding: 8px 2px;
 }
 /* a planned night can be dragged onto another to swap them */
 .day[data-has] {
@@ -336,8 +405,8 @@ body.dragging .day {
   color: var(--ink);
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.22);
   font-family: var(--hand);
-  font-size: 1.65rem;
-  font-weight: 700;
+  font-size: 1.45rem;
+  font-weight: 400;
   line-height: 1;
   pointer-events: none;
 }
@@ -363,14 +432,14 @@ body.dragging .day {
 }
 .day .m {
   font-family: var(--hand);
-  font-size: 1.65rem;
-  font-weight: 700;
+  font-size: 1.45rem;
+  font-weight: 400;
   line-height: 1;
   margin-top: 1px;
 }
 /* an empty night keeps the row as tall as a planned one */
 .day .m.empty {
-  min-height: 1.65rem;
+  min-height: 1.45rem;
 }
 .day .m.out {
   display: flex;
@@ -559,7 +628,7 @@ body.dragging .day {
   align-self: stretch;
   margin: 0;
   font-family: var(--hand);
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   line-height: 1.25;
 }
 .meal .ings .opt {
@@ -573,7 +642,7 @@ body.dragging .day {
   margin: -24px 0 4px -8px;
   padding: 0.12em 0.55em 0.18em;
   font-family: var(--hand);
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   line-height: 1;
   color: var(--tape-ink);
   background: var(--tape-tex), var(--tape);
@@ -675,8 +744,8 @@ body.dragging .day {
   column-gap: 8px;
   cursor: pointer;
   font-family: var(--hand);
-  font-size: 1.4rem;
-  font-weight: 500;
+  font-size: 1.25rem;
+  font-weight: 400;
   line-height: 1.05;
   user-select: none;
   -webkit-user-select: none;
@@ -684,7 +753,7 @@ body.dragging .day {
 }
 .item .qty,
 .item .tag {
-  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-family: var(--sans);
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--muted);
@@ -763,7 +832,7 @@ body.dragging .day {
   background: none;
   padding: 6px 2px;
   font-family: var(--hand);
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   line-height: 1.05;
 }
 .add input:focus-visible {
@@ -967,8 +1036,8 @@ dialog.sheet::backdrop {
   border: 0;
   border-radius: 10px;
   font-family: var(--hand);
-  font-size: 1.45rem;
-  font-weight: 500;
+  font-size: 1.3rem;
+  font-weight: 400;
   line-height: 1.05;
 }
 .pick button:hover,
@@ -981,7 +1050,7 @@ dialog.sheet::backdrop {
 .pick button small {
   display: block;
   margin-top: 2px;
-  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-family: var(--sans);
   font-size: 0.82rem;
   font-weight: 400;
   color: var(--muted);
@@ -1001,12 +1070,12 @@ dialog.sheet::backdrop {
   margin: 0;
   padding: 0;
   font-family: var(--hand);
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   line-height: 1.3;
 }
 .vlist small {
   margin-left: 8px;
-  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-family: var(--sans);
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--muted);
@@ -1016,7 +1085,7 @@ dialog.sheet::backdrop {
   padding-top: 12px;
   border-top: 1px solid var(--line);
   font-family: var(--hand);
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   line-height: 1.3;
   white-space: pre-wrap;
 }
@@ -1046,7 +1115,7 @@ dialog.sheet::backdrop {
   min-height: 44px;
   padding: 8px 12px;
   font-family: var(--hand);
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 400;
 }
 .f textarea {
@@ -1061,7 +1130,24 @@ dialog.sheet::backdrop {
   margin-top: 10px;
 }
 
-/* account, lists and theme */
+/* settings: sections a good gap apart, each a short stack */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.settings h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.settings h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
 .lists {
   display: flex;
   flex-direction: column;
@@ -1076,6 +1162,126 @@ dialog.sheet::backdrop {
 }
 .lists h3:first-child {
   margin-top: 0;
+}
+/* a white card of rows, each ruled off from the next: people, meal times */
+.card {
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.card > * + * {
+  border-top: 1px solid var(--line);
+}
+.prow,
+.trow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+}
+.prow .avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 0.72rem;
+}
+.prow .avatar.pending {
+  background: none;
+  border: 1px dashed var(--muted);
+}
+.two {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.two small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+.prow .x {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: var(--muted);
+}
+/* the field that adds to a card: an invite, a new meal time */
+.addrow {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0;
+}
+.addrow .btn {
+  flex: none;
+}
+/* a meal time opens in place: its row is the handle */
+.trow {
+  width: 100%;
+  min-height: 60px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.trow > .ico {
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.trow[aria-expanded="true"] > .ico {
+  transform: rotate(90deg);
+}
+.tbody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 2px 0 14px;
+}
+.fld {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.tfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+}
+.moves {
+  display: flex;
+  gap: 6px;
+}
+.iconbtn.line {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: none;
+}
+/* a row that leads somewhere else */
+.linkrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-weight: 700;
+  text-align: left;
+}
+.linkrow .ico {
+  color: var(--muted);
 }
 .lists .lname {
   border: 1px solid var(--line);
@@ -1119,6 +1325,7 @@ dialog.sheet::backdrop {
   font-size: 1.1rem;
 }
 .who div {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1133,27 +1340,6 @@ dialog.sheet::backdrop {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.lists .irow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 0 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  font-size: 0.95rem;
-  overflow-wrap: anywhere;
-}
-.lists .irow button {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  background: none;
-  border: 0;
-  font-size: 1.3rem;
-  line-height: 1;
-  color: var(--muted);
 }
 .lists .lrow {
   min-height: 44px;
@@ -1311,13 +1497,13 @@ dialog.sheet::backdrop {
   justify-content: center;
   padding: 0 14px;
   font-family: var(--hand);
-  font-size: 1.65rem;
-  font-weight: 700;
+  font-size: 1.45rem;
+  font-weight: 400;
   line-height: 1;
   white-space: nowrap;
 }
 .spin .strip span.long {
-  font-size: 1.3rem;
+  font-size: 1.15rem;
 }
 .spin .strip span i {
   font-style: normal;
